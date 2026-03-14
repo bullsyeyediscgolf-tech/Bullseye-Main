@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join League — Bullseye</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="auth-page">
+  <div class="auth-bg">
+    <div class="bg-disc bg-disc-1"></div>
+    <div class="bg-disc bg-disc-2"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-logo">
+      <svg width="48" height="48" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+      </svg>
+      <h1 class="logo-text">BULLSEYE</h1>
+    </div>
+
+    <div class="auth-card" id="join-card">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">You've been invited to</div>
+        <div style="font-family:var(--font-display);font-size:2rem;letter-spacing:2px;color:var(--accent);" id="league-name-big">Loading...</div>
+      </div>
+
+      <div class="form-group">
+        <label>Your Team Name</label>
+        <input type="text" id="team-name-input" placeholder="e.g. Chain Gang, Ace Race, The Parkers">
+      </div>
+
+      <div id="join-error" class="auth-error hidden"></div>
+
+      <button class="btn-primary btn-full" id="join-league-btn">
+        <span>Join League</span>
+        <div class="btn-spinner hidden"></div>
+      </button>
+    </div>
+
+    <div style="text-align:center;font-size:0.8rem;color:var(--text-muted);">
+      Wrong league? <a href="../index.html">Go back</a>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await requireAuth();
+      if (!user) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code') || sessionStorage.getItem('pending_invite');
+
+      if (!code) {
+        window.location.href = '../index.html';
+        return;
+      }
+
+      // Load league info
+      const { data: league, error } = await db
+        .from('leagues')
+        .select('*')
+        .eq('invite_code', code)
+        .single();
+
+      if (error || !league) {
+        document.getElementById('league-name-big').textContent = 'Invalid Code';
+        document.getElementById('join-league-btn').disabled = true;
+        return;
+      }
+
+      document.getElementById('league-name-big').textContent = league.name;
+
+      // Check if already a member
+      const { data: existing } = await db
+        .from('teams')
+        .select('id')
+        .eq('league_id', league.id)
+        .eq('manager_id', user.id)
+        .single();
+
+      if (existing) {
+        showToast("You're already in this league!", 'info');
+        setTimeout(() => window.location.href = 'dashboard.html', 1500);
+        return;
+      }
+
+      document.getElementById('join-league-btn').addEventListener('click', async () => {
+        const teamName = document.getElementById('team-name-input').value.trim();
+        const errorEl = document.getElementById('join-error');
+        const btn = document.getElementById('join-league-btn');
+
+        if (!teamName) {
+          errorEl.textContent = 'Please enter a team name.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        btn.querySelector('span').style.opacity = '0';
+        btn.querySelector('.btn-spinner').classList.remove('hidden');
+        btn.disabled = true;
+
+        // Get current team count for draft position
+        const { data: teams } = await db
+          .from('teams')
+          .select('id')
+          .eq('league_id', league.id);
+
+        const { error: insertErr } = await db.from('teams').insert({
+          league_id: league.id,
+          manager_id: user.id,
+          name: teamName,
+          faab_balance: league.settings?.starting_faab || 100,
+          draft_position: (teams?.length || 0) + 1
+        });
+
+        if (insertErr) {
+          errorEl.textContent = insertErr.message;
+          errorEl.classList.remove('hidden');
+          btn.querySelector('span').style.opacity = '1';
+          btn.querySelector('.btn-spinner').classList.add('hidden');
+          btn.disabled = false;
+          return;
+        }
+
+        sessionStorage.removeItem('pending_invite');
+        showToast(`Welcome to ${league.name}!`, 'success');
+        setTimeout(() => window.location.href = 'dashboard.html', 1200);
+      });
+    });
+  </script>
+</body>
+</html>

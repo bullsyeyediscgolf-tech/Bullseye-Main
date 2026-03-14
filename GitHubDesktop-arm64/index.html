@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bullseye Fantasy Disc Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body class="auth-page">
+
+  <div class="auth-bg">
+    <div class="bg-disc bg-disc-1"></div>
+    <div class="bg-disc bg-disc-2"></div>
+    <div class="bg-disc bg-disc-3"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-logo">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="18" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="9" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="3" fill="#F5A623"/>
+        <line x1="1" y1="28" x2="55" y2="28" stroke="#F5A623" stroke-width="1" stroke-dasharray="3 3"/>
+        <line x1="28" y1="1" x2="28" y2="55" stroke="#F5A623" stroke-width="1" stroke-dasharray="3 3"/>
+      </svg>
+      <h1 class="logo-text">BULLSEYE</h1>
+      <p class="logo-sub">Fantasy Disc Golf</p>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Sign In</button>
+        <button class="auth-tab" data-tab="signup">Create Account</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div class="auth-panel active" id="login-panel">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="auth-error hidden"></div>
+        <button class="btn-primary btn-full" id="login-btn">
+          <span>Sign In</span>
+          <div class="btn-spinner hidden"></div>
+        </button>
+        <div class="auth-divider">or</div>
+        <button class="btn-secondary btn-full" id="demo-btn">Try Demo Mode</button>
+      </div>
+
+      <!-- SIGNUP FORM -->
+      <div class="auth-panel" id="signup-panel">
+        <div class="form-group">
+          <label>Display Name</label>
+          <input type="text" id="signup-name" placeholder="Your team manager name">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="signup-password" placeholder="Min. 8 characters" autocomplete="new-password">
+        </div>
+        <div id="signup-error" class="auth-error hidden"></div>
+        <div id="signup-success" class="auth-success hidden"></div>
+        <button class="btn-primary btn-full" id="signup-btn">
+          <span>Create Account</span>
+          <div class="btn-spinner hidden"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="auth-join">
+      <p>Have a league invite code?</p>
+      <div class="join-row">
+        <input type="text" id="invite-code" placeholder="Enter code (e.g. ab3f9c2d)" maxlength="8">
+        <button class="btn-accent" id="join-btn">Join</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
