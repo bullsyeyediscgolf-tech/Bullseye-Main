@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draft Room — Bullseye Fantasy DG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    /* ── DRAFT LAYOUT ── */
+    .draft-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+      height: calc(100vh - var(--topbar-height) - 48px);
+    }
+
+    /* ── PICK TICKER (top bar) ── */
+    .pick-ticker {
+      grid-column: 1 / -1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .ticker-round {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .ticker-on-clock {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .on-clock-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+    }
+    .on-clock-team {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .on-clock-team.my-turn {
+      color: var(--accent);
+      animation: glow-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%, 100% { text-shadow: 0 0 8px rgba(245,166,35,0.4); }
+      50% { text-shadow: 0 0 20px rgba(245,166,35,0.8); }
+    }
+
+    /* ── PICK TIMER ── */
+    .pick-timer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .timer-ring {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+    .timer-ring svg { transform: rotate(-90deg); }
+    .timer-ring-bg { fill: none; stroke: var(--border); stroke-width: 3; }
+    .timer-ring-fill {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 126;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.3s;
+    }
+    .timer-ring-fill.warning { stroke: var(--red); }
+    .timer-number {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .timer-number.warning { color: var(--red); }
+
+    /* ── MY TURN BANNER ── */
+    .my-turn-banner {
+      background: linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05));
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.9rem;
+      animation: glow-pulse 1.5s infinite;
+    }
+    .my-turn-banner.hidden { display: none; }
+
+    /* ── DRAFT BOARD ── */
+    .draft-board-wrap {
+      overflow: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .draft-board {
+      display: grid;
+      min-width: max-content;
+    }
+    .draft-board-header {
+      display: contents;
+    }
+    .board-team-header {
+      padding: 10px 14px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    .board-team-header.my-col {
+      color: var(--accent);
+      background: rgba(245,166,35,0.05);
+    }
+    .board-cell {
+      padding: 6px 10px;
+      border-right: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      min-width: 160px;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+    }
+    .board-cell.my-col {
+      background: rgba(245,166,35,0.03);
+    }
+    .board-cell.on-clock-cell {
+      background: rgba(245,166,35,0.08);
+      border: 1px dashed var(--accent);
+    }
+    .board-cell.current-pick {
+      animation: cell-pulse 1s ease-in-out infinite;
+    }
+    @keyframes cell-pulse {
+      0%, 100% { background: rgba(245,166,35,0.08); }
+      50% { background: rgba(245,166,35,0.18); }
+    }
+    .pick-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+    }
+    .pick-chip-name {
+      font-weight: 600;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pick-chip-meta {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+    .pick-number-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    /* ── PLAYER SEARCH PANEL ── */
+    .player-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .player-panel-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .player-panel-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .player-search-input {
+      width: 100%;
+    }
+    .player-filters {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .player-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .draft-player-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .draft-player-row:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border);
+    }
+    .draft-player-row.drafted {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .draft-player-row.drafted .player-name {
+      text-decoration: line-through;
+    }
+    .draft-player-rating {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .pick-btn {
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #0A0C0F;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      display: none;
+    }
+    .my-turn-active .draft-player-row:hover .pick-btn { display: block; }
+    .my-turn-active .draft-player-row:hover .draft-player-rating { display: none; }
+
+    /* ── RECENT PICKS FEED ── */
+    .recent-picks {
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .recent-picks-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .recent-pick-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.8rem;
+      animation: slide-in 0.3s ease;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .recent-pick-item:last-child { border-bottom: none; }
+    .pick-num-badge {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      background: var(--bg-primary);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ── PRE-DRAFT / POST-DRAFT STATES ── */
+    .draft-pending-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 60px 40px;
+      text-align: center;
+      max-width: 480px;
+      margin: 60px auto;
+    }
+    .draft-order-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .draft-order-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+    .draft-order-pick {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      width: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .draft-layout { grid-template-columns: 1fr; height: auto; }
+      .draft-board-wrap { min-height: 300px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR (reused from dashboard) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg width="28" height="28" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+      </svg>
+      <span class="sidebar-logo">BULLSEYE</span>
+      <span class="sidebar-season">2026</span>
+    </div>
+    <div class="sidebar-league">
+      <div class="league-selector">
+        <span class="league-selector-label">League</span>
+        <span class="league-selector-name" id="league-name-display">Loading...</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="schedule.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Schedule
+      </a>
+      <div class="nav-section-label">My Team</div>
+      <a href="roster.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Roster
+      </a>
+      <a href="lineup.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Set Lineup
+      </a>
+      <div class="nav-section-label">League</div>
+      <a href="standings.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+        Standings
+      </a>
+      <a href="draft.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Draft
+      </a>
+      <a href="waivers.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Waivers
+      </a>
+      <a href="trades.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Trades
+      </a>
+      <a href="players.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+        Player Pool
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">??</div>
+        <div>
+          <div class="user-name" id="user-display-name">Loading...</div>
+          <div class="user-role" id="user-role">Manager</div>
+        </div>
+        <button class="logout-btn" id="logout-btn" title="Sign Out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <h1 class="topbar-title">Draft Room</h1>
+      <div class="topbar-actions" id="topbar-actions">
+        <!-- Commissioner controls injected here -->
+      </div>
+    </header>
+
+    <div class="page-content" style="max-width:100%;">
+
+      <!-- LOADING -->
+      <div id="draft-loading">
+        <div class="skeleton" style="height:80px;border-radius:10px;margin-bottom:16px;"></div>
+        <div class="skeleton" style="height:400px;border-radius:10px;"></div>
+      </div>
+
+      <!-- PENDING (not started) -->
+      <div id="draft-pending" class="hidden">
+        <div class="card draft-pending-card">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <path d="M28 4L4 16v12c0 13.3 10.3 25.7 24 28.8C41.7 53.7 52 41.3 52 28V16L28 4z" stroke="#F5A623" stroke-width="2" fill="none"/>
+            <path d="M20 28l6 6 10-10" stroke="#F5A623" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <h2 style="font-family:var(--font-display);font-size:2rem;letter-spacing:2px;">Draft Pending</h2>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">Waiting for the commissioner to start the draft. Draft order below.</p>
+
+          <div id="commissioner-start-area" class="hidden" style="width:100%;">
+            <button class="btn-primary btn-full" id="start-draft-btn" style="font-size:1rem;padding:14px;">
+              🚀 Start Draft
+            </button>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;text-align:center;">
+              Make sure all managers are ready. This cannot be undone.
+            </p>
+          </div>
+
+          <div class="draft-order-list" id="draft-order-list">
+            <!-- Injected -->
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPLETED -->
+      <div id="draft-completed" class="hidden">
+        <div class="card draft-pending-card">
+          <div style="font-size:3rem;">🏆</div>
+          <h2 style="font-family:var(--font-display);font-size:2rem;letter-spacing:2px;">Draft Complete!</h2>
+          <p style="color:var(--text-secondary);">All picks have been made. Check your roster and set your lineup for the first tournament.</p>
+          <a href="roster.html" class="btn-primary">View My Roster →</a>
+        </div>
+      </div>
+
+      <!-- ACTIVE DRAFT -->
+      <div id="draft-active" class="hidden">
+        <div id="my-turn-banner" class="my-turn-banner hidden" style="margin-bottom:14px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          It's your pick! Select a player from the list →
+        </div>
+
+        <div class="draft-layout">
+          <!-- TOP: TICKER -->
+          <div class="pick-ticker" id="pick-ticker">
+            <div class="ticker-round" id="ticker-round">RD 1</div>
+            <div class="ticker-on-clock">
+              <span class="on-clock-label">On the Clock</span>
+              <span class="on-clock-team" id="on-clock-team">—</span>
+            </div>
+            <div class="pick-timer">
+              <div class="timer-ring">
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <circle class="timer-ring-bg" cx="24" cy="24" r="20"/>
+                  <circle class="timer-ring-fill" id="timer-ring-fill" cx="24" cy="24" r="20"/>
+                </svg>
+                <div class="timer-number" id="timer-number">—</div>
+              </div>
+            </div>
+            <div style="font-size:0.8rem;color:var(--text-muted);">
+              Pick <span id="ticker-pick-num" style="color:var(--text-primary);font-weight:700;">—</span>
+              of <span id="ticker-total-picks">—</span>
+            </div>
+          </div>
+
+          <!-- DRAFT BOARD -->
+          <div class="draft-board-wrap" id="draft-board-wrap">
+            <div class="draft-board" id="draft-board">
+              <!-- Injected by JS -->
+            </div>
+          </div>
+
+          <!-- PLAYER PANEL -->
+          <div class="player-panel" id="player-panel">
+            <div class="player-panel-header">
+              <div class="player-panel-title">Available Players</div>
+              <input type="text" class="player-search-input" id="player-search" placeholder="Search players...">
+              <div class="player-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="1000">1000+</button>
+                <button class="filter-btn" data-filter="990">990+</button>
+                <button class="filter-btn" data-filter="980">980+</button>
+              </div>
+            </div>
+            <div class="player-list" id="player-list">
+              <!-- Injected -->
+            </div>
+            <div class="recent-picks" id="recent-picks-panel">
+              <div class="recent-picks-title">Recent Picks</div>
+              <div id="recent-picks-list">
+                <!-- Injected -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/draft.js"></script>
+</body>
+</html>
