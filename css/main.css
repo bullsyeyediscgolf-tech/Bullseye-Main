@@ -132,12 +132,19 @@ input::placeholder { color: var(--text-muted); }
    ============================================ */
 .auth-page {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100vh;
-  padding: 24px;
+  padding: 40px 24px;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (min-height: 700px) {
+  .auth-page {
+    align-items: center;
+  }
 }
 
 .auth-bg {
@@ -145,6 +152,7 @@ input::placeholder { color: var(--text-muted); }
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  overflow: hidden;
 }
 
 .bg-disc {
