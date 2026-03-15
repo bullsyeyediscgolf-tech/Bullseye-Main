@@ -32,7 +32,7 @@
     .pool-table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
     .pool-table-header {
       display: grid;
-      grid-template-columns: 32px 1fr 100px 100px 120px 80px;
+      grid-template-columns: 32px 1fr 80px 80px 100px 120px 80px;
       gap: 0;
       padding: 10px 16px;
       background: var(--bg-secondary);
@@ -46,15 +46,18 @@
     .pool-th.sortable:hover { color: var(--text-primary); }
     .pool-row {
       display: grid;
-      grid-template-columns: 32px 1fr 100px 100px 120px 80px;
+      grid-template-columns: 32px 1fr 80px 80px 100px 120px 80px;
       gap: 0;
       padding: 10px 16px;
       border-bottom: 1px solid var(--border-subtle);
       align-items: center;
       transition: background 0.15s;
+      cursor: pointer;
     }
     .pool-row:hover { background: var(--bg-card-hover); }
     .pool-row:last-child { border-bottom: none; }
+    .pool-player-link { color: var(--text-primary); text-decoration: none; font-weight: 600; font-size: 0.875rem; }
+    .pool-player-link:hover { color: var(--accent); }
     .pool-rank { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
     .pool-owner {
       font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;
@@ -67,9 +70,9 @@
     @media (max-width: 900px) {
       .pool-layout { grid-template-columns: 1fr; }
       .filter-card { position: static; }
-      .pool-table-header, .pool-row { grid-template-columns: 32px 1fr 80px 100px; }
-      .pool-th:nth-child(3), .pool-row > *:nth-child(3),
-      .pool-th:nth-child(4), .pool-row > *:nth-child(4) { display: none; }
+      .pool-table-header, .pool-row { grid-template-columns: 32px 1fr 80px 80px 100px; }
+      .pool-th:nth-child(6), .pool-row > *:nth-child(6),
+      .pool-th:nth-child(7), .pool-row > *:nth-child(7) { display: none; }
     }
   </style>
 </head>
@@ -196,10 +199,11 @@
             <div class="pool-table-header">
               <div class="pool-th">#</div>
               <div class="pool-th">Player</div>
-              <div class="pool-th pool-th-rating sortable" onclick="toggleSort()">Rating ↕</div>
-              <div class="pool-th">Country</div>
+              <div class="pool-th sortable" onclick="toggleSort('avgFpts')" id="th-avgfpts">Avg Fpts ↕</div>
+              <div class="pool-th sortable" onclick="toggleSort('totalFpts')" id="th-totalfpts">Total</div>
+              <div class="pool-th sortable" onclick="toggleSort('rating')" id="th-rating">Rating</div>
               <div class="pool-th">Owner</div>
-              <div class="pool-th">PDGA #</div>
+              <div class="pool-th">Country</div>
             </div>
             <div id="player-rows"></div>
           </div>
@@ -217,7 +221,9 @@ let allPlayers = [];
 let rosterMap = {};   // player_id -> team name
 let myTeamId = null;
 let myRosterIds = new Set();
+let fantasyMap = {};  // player_id -> { total, avg, tournaments }
 let filters = { availability: 'all', rating: 'all', country: 'all' };
+let sortField = 'avgFpts'; // default sort by avg fantasy pts
 let sortAsc = false;
 let searchQuery = '';
 let currentPage = 0;
@@ -234,11 +240,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     await db.auth.signOut(); window.location.href = '../index.html';
   });
 
-  // Load team info
+  // Load team info & league settings
+  let leagueSettings = null;
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
   if (teams?.length) {
     document.getElementById('league-name-display').textContent = teams[0].leagues?.name || '—';
     myTeamId = teams[0].id;
+    leagueSettings = teams[0].leagues?.settings;
 
     // Load all rosters in this league
     const { data: rosters } = await db
@@ -255,6 +263,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load all players
   const { data: players } = await db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false });
   allPlayers = players || [];
+
+  // Load ALL player_scores to compute fantasy points
+  const { data: allScores } = await db
+    .from('player_scores').select('*')
+    .order('round', { ascending: true });
+
+  // Compute fantasy points per player
+  computeFantasyStats(allScores || [], leagueSettings);
 
   // Build country filter
   const countries = [...new Set(allPlayers.map(p => p.nationality).filter(Boolean))].sort();
@@ -281,17 +297,75 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
+function computeFantasyStats(allScores, leagueSettings) {
+  const cfg = leagueSettings?.scoring || {};
+  const leadMult = cfg.lead_card_multiplier || 1.5;
+  const podiumBonus = cfg.podium_bonus || [15, 8, 3];
+  const eagleBonus = cfg.eagle_bonus ?? 1;
+  const parkedBonus = cfg.parked_bonus ?? 1;
+
+  // Group scores by player_id -> tournament_id -> [rounds]
+  const byPlayer = {};
+  allScores.forEach(s => {
+    if (!byPlayer[s.player_id]) byPlayer[s.player_id] = {};
+    if (!byPlayer[s.player_id][s.tournament_id]) byPlayer[s.player_id][s.tournament_id] = [];
+    byPlayer[s.player_id][s.tournament_id].push(s);
+  });
+
+  Object.entries(byPlayer).forEach(([playerId, tournaments]) => {
+    let totalFpts = 0;
+    let tournCount = 0;
+
+    Object.values(tournaments).forEach(rounds => {
+      rounds.sort((a, b) => a.round - b.round);
+      let tournFpts = 0;
+
+      rounds.forEach(r => {
+        const raw = r.score_relative_par || 0;
+        const isLead = r.is_lead_card && r.round > 1;
+        const roundScore = isLead ? raw * leadMult : raw;
+        tournFpts += roundScore;
+        tournFpts += (r.eagles || 0) * eagleBonus;
+        tournFpts += (r.parked_holes || 0) * parkedBonus;
+      });
+
+      // Podium bonus
+      const lastRound = rounds.find(r => r.finish_position != null);
+      if (lastRound?.finish_position === 1) tournFpts += podiumBonus[0];
+      else if (lastRound?.finish_position === 2) tournFpts += podiumBonus[1];
+      else if (lastRound?.finish_position === 3) tournFpts += podiumBonus[2];
+
+      totalFpts += tournFpts;
+      tournCount++;
+    });
+
+    fantasyMap[playerId] = {
+      total: Math.round(totalFpts * 10) / 10,
+      avg: tournCount > 0 ? Math.round((totalFpts / tournCount) * 10) / 10 : 0,
+      tournaments: tournCount,
+    };
+  });
+}
+
 function setFilter(type, value, el) {
   filters[type] = value;
   currentPage = 0;
-  // Update active state within section
   el.closest('.filter-options').querySelectorAll('.filter-option').forEach(o => o.classList.remove('active'));
   el.classList.add('active');
   renderPlayers();
 }
 
-function toggleSort() {
-  sortAsc = !sortAsc;
+function toggleSort(field) {
+  if (sortField === field) {
+    sortAsc = !sortAsc;
+  } else {
+    sortField = field;
+    sortAsc = false; // default descending for new field
+  }
+  // Update header indicators
+  document.getElementById('th-avgfpts').textContent = 'Avg Fpts' + (sortField === 'avgFpts' ? (sortAsc ? ' ↑' : ' ↓') : '');
+  document.getElementById('th-totalfpts').textContent = 'Total' + (sortField === 'totalFpts' ? (sortAsc ? ' ↑' : ' ↓') : '');
+  document.getElementById('th-rating').textContent = 'Rating' + (sortField === 'rating' ? (sortAsc ? ' ↑' : ' ↓') : '');
   renderPlayers();
 }
 
@@ -315,7 +389,21 @@ function renderPlayers() {
     return true;
   });
 
-  if (sortAsc) filtered.sort((a,b) => (a.pdga_rating||0) - (b.pdga_rating||0));
+  // Sort
+  filtered.sort((a, b) => {
+    let va, vb;
+    if (sortField === 'avgFpts') {
+      va = fantasyMap[a.id]?.avg || 0;
+      vb = fantasyMap[b.id]?.avg || 0;
+    } else if (sortField === 'totalFpts') {
+      va = fantasyMap[a.id]?.total || 0;
+      vb = fantasyMap[b.id]?.total || 0;
+    } else {
+      va = a.pdga_rating || 0;
+      vb = b.pdga_rating || 0;
+    }
+    return sortAsc ? va - vb : vb - va;
+  });
 
   const total = filtered.length;
   const start = currentPage * PAGE_SIZE;
@@ -324,22 +412,28 @@ function renderPlayers() {
   const html = page.map((p, i) => {
     const owner = rosterMap[p.id];
     const isMine = myRosterIds.has(p.id);
-    const isFree = !owner;
     const ownerHtml = isMine
       ? `<span class="pool-owner mine">My Team</span>`
       : owner
         ? `<span class="pool-owner other">${owner.teamName}</span>`
         : `<span class="pool-owner free">Free Agent</span>`;
+    const fm = fantasyMap[p.id];
+    const avgFpts = fm ? fm.avg.toFixed(1) : '—';
+    const totalFpts = fm ? fm.total.toFixed(1) : '—';
+    const avgClass = fm && fm.avg !== 0 ? (fm.avg > 0 ? 'style="color:var(--green);"' : 'style="color:var(--red);"') : '';
+    const totalClass = fm && fm.total !== 0 ? (fm.total > 0 ? 'style="color:var(--green);"' : 'style="color:var(--red);"') : '';
+
     return `
-      <div class="pool-row">
+      <div class="pool-row" onclick="window.location.href='player.html?id=${p.id}'">
         <div class="pool-rank">${start + i + 1}</div>
         <div>
-          <div style="font-weight:600;font-size:0.875rem;">${p.name}</div>
+          <a class="pool-player-link" href="player.html?id=${p.id}" onclick="event.stopPropagation();">${p.name}</a>
         </div>
+        <div class="pool-rating" ${avgClass}>${avgFpts}</div>
+        <div style="font-family:var(--font-mono);font-size:0.82rem;font-weight:600;" ${totalClass}>${totalFpts}</div>
         <div class="pool-rating">${p.pdga_rating || '—'}</div>
-        <div style="font-size:0.78rem;color:var(--text-muted);">${p.nationality || '—'}</div>
         <div>${ownerHtml}</div>
-        <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">${p.pdga_number || '—'}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);">${p.nationality || '—'}</div>
       </div>
     `;
   }).join('');

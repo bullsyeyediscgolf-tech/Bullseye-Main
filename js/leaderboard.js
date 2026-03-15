@@ -379,7 +379,7 @@ function renderBreakdown(teamId) {
           <div class="breakdown-player ${bp.isOnLeadCard ? 'lead-card' : ''}">
             <span class="pos-badge ${posCls}">${posLabel}</span>
             <div class="player-avatar" style="width:28px;height:28px;font-size:0.6rem;flex-shrink:0;">${getInitials(bp.player?.name)}</div>
-            <span class="bp-name">${bp.player?.name || '—'}</span>
+            <a class="bp-name" href="player.html?id=${bp.player_id}" style="color:var(--text-primary);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-primary)'">${bp.player?.name || '—'}</a>
             <div class="bp-rounds">${roundsHtml}</div>
             ${bp.bonuses ? `<span class="bp-bonuses">+${bp.bonuses.toFixed(1)} bonus</span>` : ''}
             ${bp.posBonusLabel ? `<span class="bp-bonuses" style="color:var(--purple);">${bp.posBonusLabel}</span>` : ''}
