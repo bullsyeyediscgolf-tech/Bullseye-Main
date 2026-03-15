@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Waivers — Bullseye Fantasy DG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    .waivers-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+
+    /* ── FAAB BAR ── */
+    .faab-bar {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px;
+      display: flex; align-items: center; gap: 20px;
+      margin-bottom: 20px;
+    }
+    .faab-amount {
+      font-family: var(--font-display); font-size: 2.5rem;
+      color: var(--accent); letter-spacing: 2px; line-height: 1;
+    }
+    .faab-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+    .faab-track {
+      flex: 1; height: 8px; background: var(--bg-primary);
+      border-radius: 4px; overflow: hidden; border: 1px solid var(--border);
+    }
+    .faab-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
+
+    /* ── BLACKOUT BANNER ── */
+    .blackout-banner {
+      background: rgba(231,76,60,0.08); border: 1px solid var(--red);
+      border-radius: var(--radius); padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; font-size: 0.85rem;
+    }
+    .blackout-banner.open {
+      background: rgba(46,204,113,0.08); border-color: var(--green); color: var(--green);
+    }
+    .blackout-countdown {
+      font-family: var(--font-mono); font-weight: 700;
+      color: var(--red); font-size: 1.1rem;
+    }
+
+    /* ── WAIVER PLAYER ROW ── */
+    .waiver-player-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle); background: var(--bg-primary);
+      transition: all 0.2s; margin-bottom: 6px;
+    }
+    .waiver-player-row:hover { border-color: var(--border); background: var(--bg-card-hover); }
+    .waiver-player-row.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .waiver-bid-area {
+      display: flex; align-items: center; gap: 8px; margin-left: auto;
+    }
+    .bid-input {
+      width: 70px !important; font-family: var(--font-mono) !important;
+      font-size: 0.9rem !important; text-align: center; padding: 6px 8px !important;
+    }
+
+    /* ── MY CLAIMS ── */
+    .claim-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+    .claim-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .claim-status {
+      font-size: 0.65rem; font-weight: 700; padding: 2px 7px;
+      border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .claim-pending { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); }
+    .claim-won { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+    .claim-lost { background: var(--bg-primary); color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* Free agent pickup */
+    .fa-section { margin-top: 24px; }
+    .fa-section-title {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 12px;
+    }
+
+    @media (max-width: 900px) { .waivers-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg width="28" height="28" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+      </svg>
+      <span class="sidebar-logo">BULLSEYE</span>
+      <span class="sidebar-season">2026</span>
+    </div>
+    <div class="sidebar-league">
+      <div class="league-selector">
+        <span class="league-selector-label">League</span>
+        <span class="league-selector-name" id="league-name-display">Loading...</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="schedule.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg>Schedule</a>
+      <a href="leaderboard.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Leaderboard</a>
+      <div class="nav-section-label">My Team</div>
+      <a href="roster.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster</a>
+      <a href="lineup.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg>Set Lineup</a>
+      <div class="nav-section-label">League</div>
+      <a href="standings.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>Standings</a>
+      <a href="draft.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>Draft</a>
+      <a href="waivers.html" class="nav-item active"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Waivers</a>
+      <a href="trades.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Trades</a>
+      <a href="players.html" class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Player Pool</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">??</div>
+        <div><div class="user-name" id="user-display-name">Loading...</div></div>
+        <button class="logout-btn" id="logout-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <h1 class="topbar-title">Waiver Wire</h1>
+      <div class="topbar-actions">
+        <input type="text" id="waiver-search" placeholder="Search free agents..." style="width:200px;">
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="loading-state"><div class="skeleton" style="height:500px;border-radius:10px;"></div></div>
+      <div id="waivers-content" class="hidden">
+
+        <!-- FAAB bar -->
+        <div class="faab-bar">
+          <div>
+            <div class="faab-label">FAAB Balance</div>
+            <div class="faab-amount" id="faab-amount">$—</div>
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:0.72rem;color:var(--text-muted);">Spent</span>
+              <span style="font-size:0.72rem;color:var(--text-muted);" id="faab-spent-label">$0 of $100</span>
+            </div>
+            <div class="faab-track"><div class="faab-fill" id="faab-fill" style="width:100%;"></div></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="faab-label">Starting Budget</div>
+            <div style="font-family:var(--font-mono);font-size:1.1rem;color:var(--text-muted);">$100</div>
+          </div>
+        </div>
+
+        <!-- Blackout banner -->
+        <div id="blackout-banner" class="blackout-banner hidden">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <div style="font-weight:700;font-size:0.85rem;" id="blackout-title">Waiver Blackout Active</div>
+            <div style="font-size:0.78rem;" id="blackout-desc">The waiver wire is locked for 24 hours after a tournament ends. FAAB bids are being collected.</div>
+          </div>
+          <div class="blackout-countdown" id="blackout-countdown"></div>
+        </div>
+
+        <div class="waivers-layout">
+          <!-- LEFT: FREE AGENTS -->
+          <div>
+            <!-- WAIVER WINDOW (blackout period - blind FAAB bidding) -->
+            <div id="waiver-window-section">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);">
+                  🔒 Waiver Claims — Blind FAAB
+                </div>
+                <span style="font-size:0.75rem;color:var(--text-muted);">Highest bid wins. Bids revealed when window closes.</span>
+              </div>
+              <div id="waiver-players-list"></div>
+            </div>
+
+            <!-- FREE AGENT SECTION (outside blackout) -->
+            <div class="fa-section">
+              <div class="fa-section-title">⚡ Free Agent Pickups (instant, no FAAB)</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">Outside the waiver window, any undrafted player can be picked up instantly. You must drop a player if your roster is full.</div>
+              <div id="fa-players-list"></div>
+            </div>
+          </div>
+
+          <!-- RIGHT: MY CLAIMS + DROP -->
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="card">
+              <div class="card-header"><h2 class="card-title">My Active Bids</h2></div>
+              <div id="my-claims-list">
+                <div class="empty-state" style="padding:24px;">
+                  <div class="empty-state-icon">💰</div>
+                  <div class="empty-state-title">No active bids</div>
+                  <div class="empty-state-desc">Submit FAAB bids during the waiver window.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h2 class="card-title">Drop a Player</h2></div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">Select which player to drop when adding via waivers.</div>
+              <div id="drop-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- BID MODAL -->
+<div class="modal-overlay hidden" id="bid-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="bid-modal-title">Place Bid</h2>
+      <button class="modal-close" onclick="document.getElementById('bid-modal').classList.add('hidden')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg-primary);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">Adding</div>
+        <div style="font-weight:700;" id="bid-player-name">—</div>
+      </div>
+      <div class="form-group">
+        <label>Your FAAB Bid ($0 – $<span id="bid-max">100</span>)</label>
+        <input type="number" id="bid-amount" min="0" placeholder="Enter bid amount" style="font-family:var(--font-mono);font-size:1.1rem;">
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Blind bid — highest bid wins when window closes. Ties go to the team with worse standings.</div>
+      </div>
+      <div class="form-group">
+        <label>Drop Player (if roster is full)</label>
+        <select id="bid-drop-player">
+          <option value="">— Keep full roster if space available —</option>
+        </select>
+      </div>
+      <div id="bid-error" class="auth-error hidden"></div>
+      <button class="btn-primary btn-full" id="submit-bid-btn">Submit Bid</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script>
+let waiverState = {
+  myTeam: null, league: null,
+  myRoster: [], allRosterIds: new Set(),
+  freePlayers: [],
+  selectedDrop: null,
+  currentBidPlayer: null,
+  isBlackout: false,
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  const name = user.user_metadata?.display_name || user.email.split('@')[0];
+  document.getElementById('user-avatar').textContent = getInitials(name);
+  document.getElementById('user-display-name').textContent = name;
+  document.getElementById('logout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../index.html'; });
+
+  const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
+  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+
+  waiverState.myTeam = teams[0];
+  waiverState.league = teams[0].leagues;
+  document.getElementById('league-name-display').textContent = waiverState.league.name;
+
+  // Load my roster
+  const { data: myRoster } = await db.from('rosters').select('*, players(*)').eq('team_id', waiverState.myTeam.id).eq('is_active', true);
+  waiverState.myRoster = myRoster || [];
+
+  // Load all rostered player IDs in this league
+  const { data: allRosters } = await db.from('rosters').select('player_id').eq('league_id', waiverState.league.id).eq('is_active', true);
+  waiverState.allRosterIds = new Set((allRosters || []).map(r => r.player_id));
+
+  // Load all players — free agents are those not on any roster
+  const { data: allPlayers } = await db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false });
+  waiverState.freePlayers = (allPlayers || []).filter(p => !waiverState.allRosterIds.has(p.id));
+
+  // FAAB display
+  const balance = waiverState.myTeam.faab_balance;
+  const startBudget = waiverState.league.settings?.starting_faab || 100;
+  const spent = startBudget - balance;
+  document.getElementById('faab-amount').textContent = `$${balance}`;
+  document.getElementById('faab-spent-label').textContent = `$${spent} of $${startBudget}`;
+  document.getElementById('faab-fill').style.width = `${(balance / startBudget) * 100}%`;
+
+  // Check blackout window
+  await checkBlackoutWindow();
+
+  // Render players
+  renderWaiverPlayers();
+  renderDropList();
+  await loadMyClaims();
+
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('waivers-content').classList.remove('hidden');
+
+  // Search
+  document.getElementById('waiver-search').addEventListener('input', e => {
+    renderWaiverPlayers(e.target.value.toLowerCase());
+  });
+});
+
+async function checkBlackoutWindow() {
+  // Find most recently completed tournament and check if within 24h
+  const { data: recent } = await db
+    .from('tournaments').select('*')
+    .eq('status', 'completed')
+    .order('end_date', { ascending: false })
+    .limit(1);
+
+  if (!recent?.length) return;
+
+  const endDate = new Date(recent[0].end_date);
+  endDate.setHours(23, 59, 59); // end of tournament day
+  const now = new Date();
+  const hoursAgo = (now - endDate) / (1000 * 60 * 60);
+  const blackoutHours = waiverState.league.settings?.waiver_blackout_hours || 24;
+
+  if (hoursAgo >= 0 && hoursAgo < blackoutHours) {
+    waiverState.isBlackout = true;
+    const timeLeft = blackoutHours - hoursAgo;
+    const hoursLeft = Math.floor(timeLeft);
+    const minsLeft = Math.floor((timeLeft - hoursLeft) * 60);
+
+    const banner = document.getElementById('blackout-banner');
+    banner.classList.remove('hidden');
+    document.getElementById('blackout-countdown').textContent = `${hoursLeft}h ${minsLeft}m left`;
+  } else if (hoursAgo >= blackoutHours) {
+    // Window just opened — show green banner
+    const banner = document.getElementById('blackout-banner');
+    banner.classList.remove('hidden');
+    banner.classList.add('open');
+    document.getElementById('blackout-title').textContent = 'Waiver Window Open';
+    document.getElementById('blackout-desc').textContent = 'Free agent pickups are available. No FAAB required outside the blackout window.';
+    document.getElementById('blackout-countdown').textContent = '';
+  }
+}
+
+function renderWaiverPlayers(search = '') {
+  let players = waiverState.freePlayers;
+  if (search) players = players.filter(p => p.name.toLowerCase().includes(search));
+
+  const html = players.slice(0, 40).map(p => `
+    <div class="waiver-player-row" id="wp-${p.id}">
+      <div class="player-avatar">${getInitials(p.name)}</div>
+      <div class="player-info">
+        <div class="player-name">${p.name}</div>
+        <div class="player-meta">PDGA #${p.pdga_number || '—'} · Rating ${p.pdga_rating || '—'} · ${p.nationality || '—'}</div>
+      </div>
+      <div class="waiver-bid-area">
+        ${waiverState.isBlackout
+          ? `<button class="btn-accent btn-sm" onclick="openBidModal('${p.id}', '${p.name.replace(/'/g,"\\'")}')">💰 Bid</button>`
+          : `<button class="btn-primary btn-sm" onclick="freeAgentPickup('${p.id}', '${p.name.replace(/'/g,"\\'")}')">+ Add</button>`
+        }
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('waiver-players-list').innerHTML = html ||
+    '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No free agents found</div>';
+  document.getElementById('fa-players-list').innerHTML = waiverState.isBlackout
+    ? '<div style="font-size:0.82rem;color:var(--text-muted);padding:8px;">Free agent pickups are not available during the waiver blackout window.</div>'
+    : '<div style="font-size:0.82rem;color:var(--text-muted);padding:8px;">Free agent pickups available above during the non-blackout period.</div>';
+}
+
+function renderDropList() {
+  const html = waiverState.myRoster.map(r => `
+    <div class="propose-player-row ${waiverState.selectedDrop === r.player_id ? 'selected' : ''}"
+         onclick="selectDrop('${r.player_id}')" style="padding:7px 10px;border-radius:6px;border:1px solid transparent;cursor:pointer;font-size:0.82rem;display:flex;align-items:center;gap:8px;transition:all 0.15s;">
+      <div class="player-avatar" style="width:26px;height:26px;font-size:0.6rem;flex-shrink:0;">${getInitials(r.players?.name)}</div>
+      <span style="flex:1;">${r.players?.name || '—'}</span>
+      ${waiverState.selectedDrop === r.player_id ? '<span style="color:var(--red);font-size:0.7rem;font-weight:700;">DROP</span>' : ''}
+    </div>
+  `).join('');
+  document.getElementById('drop-list').innerHTML = html;
+  // Also populate bid modal drop select
+  const sel = document.getElementById('bid-drop-player');
+  sel.innerHTML = '<option value="">— Keep full roster if space available —</option>';
+  waiverState.myRoster.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.player_id; opt.textContent = r.players?.name || '—';
+    sel.appendChild(opt);
+  });
+}
+
+function selectDrop(pid) {
+  waiverState.selectedDrop = waiverState.selectedDrop === pid ? null : pid;
+  renderDropList();
+}
+
+function openBidModal(playerId, playerName) {
+  waiverState.currentBidPlayer = playerId;
+  document.getElementById('bid-player-name').textContent = playerName;
+  document.getElementById('bid-modal-title').textContent = `Bid on ${playerName}`;
+  document.getElementById('bid-max').textContent = waiverState.myTeam.faab_balance;
+  document.getElementById('bid-amount').max = waiverState.myTeam.faab_balance;
+  document.getElementById('bid-amount').value = '';
+  document.getElementById('bid-error').classList.add('hidden');
+  document.getElementById('bid-modal').classList.remove('hidden');
+  document.getElementById('submit-bid-btn').onclick = submitBid;
+}
+
+async function submitBid() {
+  const errEl = document.getElementById('bid-error');
+  errEl.classList.add('hidden');
+  const amount = parseInt(document.getElementById('bid-amount').value);
+  const dropId = document.getElementById('bid-drop-player').value || null;
+  const playerId = waiverState.currentBidPlayer;
+
+  if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid bid amount ($0 or more).'; errEl.classList.remove('hidden'); return; }
+  if (amount > waiverState.myTeam.faab_balance) { errEl.textContent = `You only have $${waiverState.myTeam.faab_balance} FAAB remaining.`; errEl.classList.remove('hidden'); return; }
+
+  // Get current tournament for reference
+  const { data: tournament } = await db.from('tournaments').select('id').eq('status', 'completed').order('end_date', { ascending: false }).limit(1).single();
+
+  const { error } = await db.from('waiver_claims').insert({
+    league_id: waiverState.league.id,
+    team_id: waiverState.myTeam.id,
+    player_id: playerId,
+    drop_player_id: dropId || null,
+    bid_amount: amount,
+    tournament_id: tournament?.id || null,
+    status: 'pending',
+  });
+
+  if (error) { errEl.textContent = error.message; errEl.classList.remove('hidden'); return; }
+
+  document.getElementById('bid-modal').classList.add('hidden');
+  showToast(`Bid of $${amount} submitted!`, 'success');
+  await loadMyClaims();
+}
+
+async function freeAgentPickup(playerId, playerName) {
+  const teamSize = waiverState.league.settings?.team_size || 7;
+  if (waiverState.myRoster.length >= teamSize && !waiverState.selectedDrop) {
+    showToast('Your roster is full — select a player to drop first', 'error', 4000);
+    document.getElementById('drop-list').scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+
+  if (!confirm(`Add ${playerName} as a free agent?${waiverState.selectedDrop ? ' The selected player will be dropped.' : ''}`)) return;
+
+  // Add player
+  await db.from('rosters').insert({
+    team_id: waiverState.myTeam.id,
+    player_id: playerId,
+    league_id: waiverState.league.id,
+    acquired_via: 'free_agent',
+    is_active: true,
+  });
+
+  // Drop player if selected
+  if (waiverState.selectedDrop) {
+    await db.from('rosters').update({ is_active: false, dropped_at: new Date().toISOString() })
+      .eq('team_id', waiverState.myTeam.id).eq('player_id', waiverState.selectedDrop);
+  }
+
+  showToast(`${playerName} added to your roster!`, 'success');
+  setTimeout(() => window.location.reload(), 1200);
+}
+
+async function loadMyClaims() {
+  const { data: claims } = await db
+    .from('waiver_claims').select('*, players(name)')
+    .eq('team_id', waiverState.myTeam.id)
+    .in('status', ['pending', 'won', 'lost'])
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (!claims?.length) return;
+
+  const html = claims.map(c => `
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-status claim-${c.status}">${c.status}</span>
+        <span style="font-weight:600;font-size:0.85rem;">${c.players?.name || '—'}</span>
+        <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.85rem;color:var(--accent);">$${c.bid_amount}</span>
+      </div>
+      ${c.status === 'pending' ? `
+        <button class="btn-danger btn-sm" style="width:100%;" onclick="cancelClaim('${c.id}')">Cancel Bid</button>
+      ` : ''}
+    </div>
+  `).join('');
+
+  document.getElementById('my-claims-list').innerHTML = html;
+}
+
+async function cancelClaim(claimId) {
+  await db.from('waiver_claims').update({ status: 'cancelled' }).eq('id', claimId);
+  showToast('Bid cancelled', 'info');
+  await loadMyClaims();
+}
+</script>
+</body>
+</html>
