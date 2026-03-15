@@ -410,7 +410,12 @@ input::placeholder { color: var(--text-muted); }
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .nav-section-label {
   font-size: 0.65rem;

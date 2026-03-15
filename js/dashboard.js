@@ -77,6 +77,18 @@ async function loadUserLeagues(user) {
   document.getElementById('league-name-display').textContent = league.name;
   document.getElementById('dashboard-content').classList.remove('hidden');
 
+  // Show invite code for commissioner
+  if (league.commissioner_id === user.id) {
+    const selector = document.getElementById('league-selector');
+    selector.innerHTML += `
+      <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Invite Code</span>
+        <span id="invite-code-display" style="font-family:var(--font-mono);font-size:0.78rem;color:var(--accent);letter-spacing:2px;cursor:pointer;" title="Click to copy" onclick="copyInviteCode('${league.invite_code}')">${league.invite_code}</span>
+        <button onclick="copyInviteCode('${league.invite_code}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.7rem;padding:1px 4px;" title="Copy invite code">📋</button>
+      </div>
+    `;
+  }
+
   // Load all dashboard data in parallel
   await Promise.all([
     loadStandings(league.id, team.id),
@@ -414,6 +426,13 @@ function renderScoresWithShield() {
 // ============================================
 // CREATE LEAGUE MODAL
 // ============================================
+function copyInviteCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    showToast(`Invite code copied: ${code}`, 'success');
+  }).catch(() => {
+    showToast(`Invite code: ${code}`, 'info', 6000);
+  });
+}
 function setupCreateLeagueModal() {
   const modal = document.getElementById('create-league-modal');
   const createBtn = document.getElementById('create-league-btn');

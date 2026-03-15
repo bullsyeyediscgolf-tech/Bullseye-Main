@@ -468,9 +468,10 @@ async function freeAgentPickup(playerId, playerName) {
 }
 
 async function loadMyClaims() {
+  // Only load YOUR OWN claims - bids are blind, never show other teams' bids
   const { data: claims } = await db
     .from('waiver_claims').select('*, players(name)')
-    .eq('team_id', waiverState.myTeam.id)
+    .eq('team_id', waiverState.myTeam.id)  // ← only my team's bids
     .in('status', ['pending', 'won', 'lost'])
     .order('created_at', { ascending: false })
     .limit(10);
@@ -482,7 +483,14 @@ async function loadMyClaims() {
       <div class="claim-card-header">
         <span class="claim-status claim-${c.status}">${c.status}</span>
         <span style="font-weight:600;font-size:0.85rem;">${c.players?.name || '—'}</span>
-        <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.85rem;color:var(--accent);">$${c.bid_amount}</span>
+        <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.85rem;color:var(--accent);">
+          ${c.status === 'pending' ? `$${c.bid_amount} 🔒` : `$${c.bid_amount}`}
+        </span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">
+        ${c.status === 'pending' ? 'Blind bid — revealed when window closes' : ''}
+        ${c.status === 'won' ? '✓ Bid won — player added to roster' : ''}
+        ${c.status === 'lost' ? '✗ Outbid — FAAB returned' : ''}
       </div>
       ${c.status === 'pending' ? `
         <button class="btn-danger btn-sm" style="width:100%;" onclick="cancelClaim('${c.id}')">Cancel Bid</button>
