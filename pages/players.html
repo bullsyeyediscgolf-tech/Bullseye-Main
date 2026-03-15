@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player Pool — Bullseye Fantasy DG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    .pool-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; }
+    .filter-card { position: sticky; top: calc(var(--topbar-height) + 16px); }
+    .filter-section { margin-bottom: 20px; }
+    .filter-section-label {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px;
+    }
+    .filter-options { display: flex; flex-direction: column; gap: 4px; }
+    .filter-option {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 0.85rem; font-weight: 500;
+      color: var(--text-secondary); transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .filter-option:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+    .filter-option.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .filter-count {
+      margin-left: auto; font-family: var(--font-mono);
+      font-size: 0.7rem; color: var(--text-muted);
+    }
+    .pool-table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .pool-table-header {
+      display: grid;
+      grid-template-columns: 32px 1fr 100px 100px 120px 80px;
+      gap: 0;
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .pool-th {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted);
+    }
+    .pool-th.sortable { cursor: pointer; }
+    .pool-th.sortable:hover { color: var(--text-primary); }
+    .pool-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 100px 100px 120px 80px;
+      gap: 0;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      align-items: center;
+      transition: background 0.15s;
+    }
+    .pool-row:hover { background: var(--bg-card-hover); }
+    .pool-row:last-child { border-bottom: none; }
+    .pool-rank { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+    .pool-owner {
+      font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;
+      font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pool-owner.mine { background: var(--accent-dim); color: var(--accent); }
+    .pool-owner.other { background: var(--bg-primary); color: var(--text-muted); border: 1px solid var(--border); }
+    .pool-owner.free { background: var(--green-dim); color: var(--green); }
+    .pool-rating { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; }
+    @media (max-width: 900px) {
+      .pool-layout { grid-template-columns: 1fr; }
+      .filter-card { position: static; }
+      .pool-table-header, .pool-row { grid-template-columns: 32px 1fr 80px 100px; }
+      .pool-th:nth-child(3), .pool-row > *:nth-child(3),
+      .pool-th:nth-child(4), .pool-row > *:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg width="28" height="28" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+      </svg>
+      <span class="sidebar-logo">BULLSEYE</span>
+      <span class="sidebar-season">2026</span>
+    </div>
+    <div class="sidebar-league">
+      <div class="league-selector">
+        <span class="league-selector-label">League</span>
+        <span class="league-selector-name" id="league-name-display">Loading...</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+      </a>
+      <a href="schedule.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Schedule
+      </a>
+      <div class="nav-section-label">My Team</div>
+      <a href="roster.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster
+      </a>
+      <a href="lineup.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Set Lineup
+      </a>
+      <div class="nav-section-label">League</div>
+      <a href="standings.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>Standings
+      </a>
+      <a href="draft.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Draft
+      </a>
+      <a href="waivers.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Waivers
+      </a>
+      <a href="trades.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Trades
+      </a>
+      <a href="players.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Player Pool
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">??</div>
+        <div><div class="user-name" id="user-display-name">Loading...</div></div>
+        <button class="logout-btn" id="logout-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <h1 class="topbar-title">Player Pool</h1>
+      <div class="topbar-actions">
+        <input type="text" id="global-search" placeholder="Search players..." style="width:220px;">
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="loading-state">
+        <div class="skeleton" style="height:500px;border-radius:10px;"></div>
+      </div>
+      <div id="pool-content" class="hidden pool-layout">
+        <!-- LEFT: FILTERS -->
+        <div>
+          <div class="card filter-card">
+            <div class="card-header"><h2 class="card-title">Filters</h2></div>
+
+            <div class="filter-section">
+              <div class="filter-section-label">Availability</div>
+              <div class="filter-options">
+                <div class="filter-option active" data-filter="all" onclick="setFilter('availability','all',this)">
+                  All Players <span class="filter-count" id="count-all">—</span>
+                </div>
+                <div class="filter-option" data-filter="free" onclick="setFilter('availability','free',this)">
+                  🟢 Free Agents <span class="filter-count" id="count-free">—</span>
+                </div>
+                <div class="filter-option" data-filter="mine" onclick="setFilter('availability','mine',this)">
+                  ⭐ My Roster <span class="filter-count" id="count-mine">—</span>
+                </div>
+                <div class="filter-option" data-filter="taken" onclick="setFilter('availability','taken',this)">
+                  🔒 On a Team <span class="filter-count" id="count-taken">—</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <div class="filter-section-label">PDGA Rating</div>
+              <div class="filter-options">
+                <div class="filter-option active" data-filter="all" onclick="setFilter('rating','all',this)">Any Rating</div>
+                <div class="filter-option" data-filter="1030" onclick="setFilter('rating','1030',this)">1030+</div>
+                <div class="filter-option" data-filter="1020" onclick="setFilter('rating','1020',this)">1020+</div>
+                <div class="filter-option" data-filter="1010" onclick="setFilter('rating','1010',this)">1010+</div>
+                <div class="filter-option" data-filter="1000" onclick="setFilter('rating','1000',this)">1000+</div>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <div class="filter-section-label">Country</div>
+              <div class="filter-options" id="country-filters">
+                <div class="filter-option active" data-filter="all" onclick="setFilter('country','all',this)">All Countries</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: PLAYER TABLE -->
+        <div>
+          <div class="pool-table-wrap">
+            <div class="pool-table-header">
+              <div class="pool-th">#</div>
+              <div class="pool-th">Player</div>
+              <div class="pool-th pool-th-rating sortable" onclick="toggleSort()">Rating ↕</div>
+              <div class="pool-th">Country</div>
+              <div class="pool-th">Owner</div>
+              <div class="pool-th">PDGA #</div>
+            </div>
+            <div id="player-rows"></div>
+          </div>
+          <div id="pool-pagination" style="margin-top:12px;display:flex;justify-content:center;gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script>
+let allPlayers = [];
+let rosterMap = {};   // player_id -> team name
+let myTeamId = null;
+let myRosterIds = new Set();
+let filters = { availability: 'all', rating: 'all', country: 'all' };
+let sortAsc = false;
+let searchQuery = '';
+let currentPage = 0;
+const PAGE_SIZE = 50;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = await requireAuth();
+  if (!user) return;
+
+  const name = user.user_metadata?.display_name || user.email.split('@')[0];
+  document.getElementById('user-avatar').textContent = getInitials(name);
+  document.getElementById('user-display-name').textContent = name;
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await db.auth.signOut(); window.location.href = '../index.html';
+  });
+
+  // Load team info
+  const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
+  if (teams?.length) {
+    document.getElementById('league-name-display').textContent = teams[0].leagues?.name || '—';
+    myTeamId = teams[0].id;
+
+    // Load all rosters in this league
+    const { data: rosters } = await db
+      .from('rosters').select('player_id, teams(id, name)')
+      .eq('league_id', teams[0].league_id || teams[0].leagues?.id)
+      .eq('is_active', true);
+
+    (rosters || []).forEach(r => {
+      rosterMap[r.player_id] = { teamId: r.teams?.id, teamName: r.teams?.name };
+      if (r.teams?.id === myTeamId) myRosterIds.add(r.player_id);
+    });
+  }
+
+  // Load all players
+  const { data: players } = await db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false });
+  allPlayers = players || [];
+
+  // Build country filter
+  const countries = [...new Set(allPlayers.map(p => p.nationality).filter(Boolean))].sort();
+  const cf = document.getElementById('country-filters');
+  countries.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'filter-option';
+    d.dataset.filter = c;
+    d.textContent = c;
+    d.onclick = () => setFilter('country', c, d);
+    cf.appendChild(d);
+  });
+
+  updateCounts();
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('pool-content').classList.remove('hidden');
+  renderPlayers();
+
+  // Search
+  document.getElementById('global-search').addEventListener('input', e => {
+    searchQuery = e.target.value.trim().toLowerCase();
+    currentPage = 0;
+    renderPlayers();
+  });
+});
+
+function setFilter(type, value, el) {
+  filters[type] = value;
+  currentPage = 0;
+  // Update active state within section
+  el.closest('.filter-options').querySelectorAll('.filter-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  renderPlayers();
+}
+
+function toggleSort() {
+  sortAsc = !sortAsc;
+  renderPlayers();
+}
+
+function updateCounts() {
+  const taken = new Set(Object.keys(rosterMap));
+  document.getElementById('count-all').textContent = allPlayers.length;
+  document.getElementById('count-free').textContent = allPlayers.filter(p => !taken.has(p.id)).length;
+  document.getElementById('count-mine').textContent = myRosterIds.size;
+  document.getElementById('count-taken').textContent = taken.size;
+}
+
+function renderPlayers() {
+  const taken = new Set(Object.keys(rosterMap));
+  let filtered = allPlayers.filter(p => {
+    if (searchQuery && !p.name.toLowerCase().includes(searchQuery)) return false;
+    if (filters.availability === 'free' && taken.has(p.id)) return false;
+    if (filters.availability === 'mine' && !myRosterIds.has(p.id)) return false;
+    if (filters.availability === 'taken' && !taken.has(p.id)) return false;
+    if (filters.rating !== 'all' && (p.pdga_rating || 0) < parseInt(filters.rating)) return false;
+    if (filters.country !== 'all' && p.nationality !== filters.country) return false;
+    return true;
+  });
+
+  if (sortAsc) filtered.sort((a,b) => (a.pdga_rating||0) - (b.pdga_rating||0));
+
+  const total = filtered.length;
+  const start = currentPage * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+
+  const html = page.map((p, i) => {
+    const owner = rosterMap[p.id];
+    const isMine = myRosterIds.has(p.id);
+    const isFree = !owner;
+    const ownerHtml = isMine
+      ? `<span class="pool-owner mine">My Team</span>`
+      : owner
+        ? `<span class="pool-owner other">${owner.teamName}</span>`
+        : `<span class="pool-owner free">Free Agent</span>`;
+    return `
+      <div class="pool-row">
+        <div class="pool-rank">${start + i + 1}</div>
+        <div>
+          <div style="font-weight:600;font-size:0.875rem;">${p.name}</div>
+        </div>
+        <div class="pool-rating">${p.pdga_rating || '—'}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);">${p.nationality || '—'}</div>
+        <div>${ownerHtml}</div>
+        <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">${p.pdga_number || '—'}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('player-rows').innerHTML = html ||
+    '<div style="padding:40px;text-align:center;color:var(--text-muted);">No players match your filters</div>';
+
+  // Pagination
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  let pages = '';
+  if (totalPages > 1) {
+    for (let i = 0; i < totalPages; i++) {
+      pages += `<button class="${i === currentPage ? 'btn-accent' : 'btn-secondary'} btn-sm"
+        onclick="goToPage(${i})">${i + 1}</button>`;
+    }
+  }
+  document.getElementById('pool-pagination').innerHTML = pages;
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderPlayers();
+  document.getElementById('pool-content').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
