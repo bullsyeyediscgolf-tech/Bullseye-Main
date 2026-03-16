@@ -26,10 +26,12 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function supabaseRpc(path, { method = 'GET', body, query } = {}) {
+async function supabaseRpc(path, { method = 'GET', body, query, onConflict } = {}) {
   let url = `${SUPABASE_URL}/rest/v1/${path}`;
-  if (query) {
-    const params = new URLSearchParams(query);
+  const q = query ? { ...query } : {};
+  if (onConflict) q.on_conflict = onConflict;
+  if (Object.keys(q).length > 0) {
+    const params = new URLSearchParams(q);
     url += `?${params}`;
   }
   const headers = {
@@ -304,6 +306,7 @@ async function main() {
           await supabaseRpc('player_scores', {
             method: 'POST',
             body: scoreRows.slice(i, i + 50),
+            onConflict: 'player_id,tournament_id,round',
           });
         }
       }
@@ -333,6 +336,7 @@ async function main() {
             await supabaseRpc('player_stats', {
               method: 'POST',
               body: statRows.slice(i, i + 50),
+              onConflict: 'player_id,tournament_id',
             });
           }
         }
