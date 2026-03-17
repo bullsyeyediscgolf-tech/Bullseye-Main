@@ -162,7 +162,8 @@ function computeAllFantasyPoints() {
     const roundBreakdowns = [];
 
     rounds.forEach(r => {
-      const raw = r.score_relative_par || 0;
+      let raw = r.score_relative_par || 0;
+      if (raw > 10) raw = 10; // Cap DNF scores at +10 over par
       const fantasyRaw = -raw; // negate: under par (negative) → positive fantasy pts
       const isLead = r.is_lead_card && r.round > 1;
       const roundScore = isLead ? fantasyRaw * leadMult : fantasyRaw;
@@ -224,7 +225,7 @@ function renderSeasonAverages() {
 
   // Compute averages
   const totalRounds = profileState.scores.length;
-  const avgRaw = profileState.scores.reduce((s, r) => s + (r.score_relative_par || 0), 0) / totalRounds;
+  const avgRaw = profileState.scores.reduce((s, r) => s + Math.min(r.score_relative_par || 0, 10), 0) / totalRounds;
   const totalEagles = profileState.scores.reduce((s, r) => s + (r.eagles || 0), 0);
   const totalParked = profileState.scores.reduce((s, r) => s + (r.parked_holes || 0), 0);
   const leadCardRounds = profileState.scores.filter(r => r.is_lead_card).length;

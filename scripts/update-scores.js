@@ -235,7 +235,12 @@ async function main() {
         const player = playerByPdga[pdga] || playerByName[ps.Name];
         if (!player) continue; // not in our player pool
 
-        const scoreToPar = ps.RoundtoPar;
+        let scoreToPar = ps.RoundtoPar;
+
+        // Cap DNF scores: PDGA API returns 999/930 for DNF players
+        if (scoreToPar == null || scoreToPar > 10) {
+          scoreToPar = 10; // DNF = +10 over par
+        }
 
         // Eagle detection from HoleScores + Pars
         let eagles = 0;

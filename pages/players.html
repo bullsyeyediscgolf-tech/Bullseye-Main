@@ -321,7 +321,8 @@ function computeFantasyStats(allScores, leagueSettings) {
       let tournFpts = 0;
 
       rounds.forEach(r => {
-        const raw = r.score_relative_par || 0;
+        let raw = r.score_relative_par || 0;
+        if (raw > 10) raw = 10; // Cap DNF scores at +10 over par
         const fantasyRaw = -raw; // negate: under par → positive fantasy pts
         const isLead = r.is_lead_card && r.round > 1;
         const roundScore = isLead ? fantasyRaw * leadMult : fantasyRaw;

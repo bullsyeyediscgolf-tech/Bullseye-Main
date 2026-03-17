@@ -63,7 +63,8 @@ const SCORING = {
 
     scores.forEach((round, i) => {
       const roundNum = round.round;
-      const raw = round.score_relative_par || 0;
+      let raw = round.score_relative_par || 0;
+      if (raw > 10) raw = 10; // Cap DNF scores at +10 over par
       const isLeadCard = round.is_lead_card && roundNum > 1; // no lead card bonus R1
 
       const fantasyRaw = -raw; // negate: under par (negative) → positive fantasy pts

@@ -220,7 +220,8 @@ function computeFantasyScores() {
       const roundDetails = [];
 
       rounds.sort((a, b) => a.round - b.round).forEach(r => {
-        const raw = r.score_relative_par || 0;
+        let raw = r.score_relative_par || 0;
+        if (raw > 10) raw = 10; // Cap DNF scores at +10 over par
         const fantasyRaw = -raw; // negate: under par → positive fantasy pts
         const isLead = r.is_lead_card && r.round > 1;
         const roundScore = isLead ? fantasyRaw * leadMult : fantasyRaw;
@@ -428,7 +429,7 @@ function renderScoringPanel() {
                 <span class="psc-score ${bp.rawScore < 0 ? 'positive' : bp.rawScore > 0 ? 'negative' : ''}">
                   ${hasData ? scoreDisplay(bp.rawScore) : '—'}
                 </span>
-                <span class="psc-pts">${hasData ? '+' + total.toFixed(1) : '—'}</span>
+                <span class="psc-pts">${hasData ? (total >= 0 ? '+' : '') + total.toFixed(1) : '—'}</span>
               </div>
             `;
           }).join('')}

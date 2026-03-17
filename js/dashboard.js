@@ -272,7 +272,7 @@ async function loadLiveScores(teamId, tournamentId) {
 
   const html = lineup.map(l => {
     const rounds = playerScores[l.player_id] || [];
-    const totalRaw = rounds.reduce((sum, r) => sum + (r.score_relative_par || 0), 0);
+    const totalRaw = rounds.reduce((sum, r) => sum + Math.min(r.score_relative_par || 0, 10), 0);
     const display = rounds.length ? scoreDisplay(totalRaw) : '—';
 
     return `
