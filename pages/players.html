@@ -174,6 +174,13 @@
             </div>
 
             <div class="filter-section">
+              <div class="filter-section-label">Tournament</div>
+              <select id="tournament-filter" style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;font-family:var(--font-body);cursor:pointer;">
+                <option value="">All Tournaments (Season)</option>
+              </select>
+            </div>
+
+            <div class="filter-section">
               <div class="filter-section-label">PDGA Rating</div>
               <div class="filter-options">
                 <div class="filter-option active" data-filter="all" onclick="setFilter('rating','all',this)">Any Rating</div>
@@ -200,7 +207,7 @@
               <div class="pool-th">#</div>
               <div class="pool-th">Player</div>
               <div class="pool-th sortable" onclick="toggleSort('avgFpts')" id="th-avgfpts">Avg Fpts</div>
-              <div class="pool-th sortable" onclick="toggleSort('totalFpts')" id="th-totalfpts">Total ↓</div>
+              <div class="pool-th sortable" onclick="toggleSort('totalFpts')" id="th-totalfpts">Total Fpts ↓</div>
               <div class="pool-th sortable" onclick="toggleSort('rating')" id="th-rating">Rating</div>
               <div class="pool-th">Owner</div>
               <div class="pool-th">Country</div>
@@ -224,6 +231,9 @@ let myTeamId = null;
 let myRosterIds = new Set();
 let fantasyMap = {};  // player_id -> { total, avg, tournaments }
 let leagueSettings = null;
+let allScoresRaw = []; // store all scores for re-filtering
+let allTournaments = []; // tournament list for filter dropdown
+let selectedTournamentId = null; // null = all tournaments (season totals)
 let filters = { availability: 'all', rating: 'all', country: 'all' };
 let sortField = 'totalFpts'; // default sort by total fantasy pts
 let sortAsc = false;
@@ -264,15 +274,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Load all players and scores in parallel
-  const [playersRes, scoresRes] = await Promise.all([
+  // Load all players, scores, and tournaments in parallel
+  const [playersRes, scoresRes, tournamentsRes] = await Promise.all([
     db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false }),
     db.from('player_scores').select('*').order('round', { ascending: true }),
+    db.from('tournaments').select('id, name, start_date').order('start_date', { ascending: false }),
   ]);
   allPlayersRaw = playersRes.data || [];
+  allScoresRaw = scoresRes.data || [];
+  allTournaments = tournamentsRes.data || [];
+
+  // Populate tournament filter dropdown
+  const tournSelect = document.getElementById('tournament-filter');
+  allTournaments.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name + (t.start_date ? ` (${formatDate(t.start_date)})` : '');
+    tournSelect.appendChild(opt);
+  });
+  tournSelect.addEventListener('change', () => {
+    selectedTournamentId = tournSelect.value || null;
+    currentPage = 0;
+    recomputeAndRender();
+  });
 
   // Compute fantasy points per player
-  computeFantasyStats(scoresRes.data || [], leagueSettings);
+  computeFantasyStats(allScoresRaw, leagueSettings, selectedTournamentId);
 
   // Build top 100: scored players by total fantasy pts, then fill with best PDGA ratings
   const scored = allPlayersRaw
@@ -312,35 +339,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   db.channel('pool-scores')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'player_scores' }, async () => {
       const { data: freshScores } = await db.from('player_scores').select('*').order('round', { ascending: true });
-      fantasyMap = {};
-      computeFantasyStats(freshScores || [], leagueSettings);
-
-      // Re-build the top 100
-      const scored = allPlayersRaw
-        .filter(p => fantasyMap[p.id] && fantasyMap[p.id].tournaments > 0)
-        .sort((a, b) => (fantasyMap[b.id]?.total || 0) - (fantasyMap[a.id]?.total || 0));
-      const unscored = allPlayersRaw
-        .filter(p => !fantasyMap[p.id] || fantasyMap[p.id].tournaments === 0)
-        .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
-      allPlayers = scored.concat(unscored).slice(0, POOL_SIZE);
-
-      updateCounts();
-      renderPlayers();
+      allScoresRaw = freshScores || [];
+      recomputeAndRender();
       showToast('Player rankings updated!', 'info', 2000);
     })
     .subscribe();
 });
 
-function computeFantasyStats(allScores, leagueSettings) {
+function computeFantasyStats(allScores, leagueSettings, tournamentFilter) {
   const cfg = leagueSettings?.scoring || {};
   const leadMult = cfg.lead_card_multiplier || 1.5;
   const podiumBonus = cfg.podium_bonus || [15, 8, 3];
   const eagleBonus = cfg.eagle_bonus ?? 1;
   const parkedBonus = cfg.parked_bonus ?? 1;
 
+  // Filter scores to selected tournament if specified
+  const scores = tournamentFilter
+    ? allScores.filter(s => s.tournament_id === tournamentFilter)
+    : allScores;
+
   // Group scores by player_id -> tournament_id -> [rounds]
   const byPlayer = {};
-  allScores.forEach(s => {
+  scores.forEach(s => {
     if (!byPlayer[s.player_id]) byPlayer[s.player_id] = {};
     if (!byPlayer[s.player_id][s.tournament_id]) byPlayer[s.player_id][s.tournament_id] = [];
     byPlayer[s.player_id][s.tournament_id].push(s);
@@ -383,6 +403,23 @@ function computeFantasyStats(allScores, leagueSettings) {
   });
 }
 
+function recomputeAndRender() {
+  fantasyMap = {};
+  computeFantasyStats(allScoresRaw, leagueSettings, selectedTournamentId);
+
+  // Re-build top 100
+  const scored = allPlayersRaw
+    .filter(p => fantasyMap[p.id] && fantasyMap[p.id].tournaments > 0)
+    .sort((a, b) => (fantasyMap[b.id]?.total || 0) - (fantasyMap[a.id]?.total || 0));
+  const unscored = allPlayersRaw
+    .filter(p => !fantasyMap[p.id] || fantasyMap[p.id].tournaments === 0)
+    .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
+  allPlayers = scored.concat(unscored).slice(0, POOL_SIZE);
+
+  updateCounts();
+  renderPlayers();
+}
+
 function setFilter(type, value, el) {
   filters[type] = value;
   currentPage = 0;
@@ -400,7 +437,7 @@ function toggleSort(field) {
   }
   // Update header indicators
   document.getElementById('th-avgfpts').textContent = 'Avg Fpts' + (sortField === 'avgFpts' ? (sortAsc ? ' ↑' : ' ↓') : '');
-  document.getElementById('th-totalfpts').textContent = 'Total' + (sortField === 'totalFpts' ? (sortAsc ? ' ↑' : ' ↓') : '');
+  document.getElementById('th-totalfpts').textContent = 'Total Fpts' + (sortField === 'totalFpts' ? (sortAsc ? ' ↑' : ' ↓') : '');
   document.getElementById('th-rating').textContent = 'Rating' + (sortField === 'rating' ? (sortAsc ? ' ↑' : ' ↓') : '');
   renderPlayers();
 }
