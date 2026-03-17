@@ -221,8 +221,9 @@ function computeFantasyScores() {
 
       rounds.sort((a, b) => a.round - b.round).forEach(r => {
         const raw = r.score_relative_par || 0;
+        const fantasyRaw = -raw; // negate: under par → positive fantasy pts
         const isLead = r.is_lead_card && r.round > 1;
-        const roundScore = isLead ? raw * leadMult : raw;
+        const roundScore = isLead ? fantasyRaw * leadMult : fantasyRaw;
         roundDetails.push({ round: r.round, raw, roundScore, isLead });
         playerPts += roundScore;
         playerRaw += raw;

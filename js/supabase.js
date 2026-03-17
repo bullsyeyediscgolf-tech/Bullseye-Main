@@ -66,9 +66,10 @@ const SCORING = {
       const raw = round.score_relative_par || 0;
       const isLeadCard = round.is_lead_card && roundNum > 1; // no lead card bonus R1
 
-      let roundScore = raw;
+      const fantasyRaw = -raw; // negate: under par (negative) → positive fantasy pts
+      let roundScore = fantasyRaw;
       if (isLeadCard) {
-        roundScore = raw * cfg.lead_card_multiplier;
+        roundScore = fantasyRaw * cfg.lead_card_multiplier;
       }
       totalRawScore += roundScore;
       totalBonuses += (round.eagles || 0) * cfg.eagle_bonus;

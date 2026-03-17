@@ -163,8 +163,9 @@ function computeAllFantasyPoints() {
 
     rounds.forEach(r => {
       const raw = r.score_relative_par || 0;
+      const fantasyRaw = -raw; // negate: under par (negative) → positive fantasy pts
       const isLead = r.is_lead_card && r.round > 1;
-      const roundScore = isLead ? raw * leadMult : raw;
+      const roundScore = isLead ? fantasyRaw * leadMult : fantasyRaw;
       const eaglePts = (r.eagles || 0) * eagleBonus;
       const parkedPts = (r.parked_holes || 0) * parkedBonus;
 
