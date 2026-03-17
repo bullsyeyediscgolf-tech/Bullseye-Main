@@ -199,8 +199,8 @@
             <div class="pool-table-header">
               <div class="pool-th">#</div>
               <div class="pool-th">Player</div>
-              <div class="pool-th sortable" onclick="toggleSort('avgFpts')" id="th-avgfpts">Avg Fpts ↕</div>
-              <div class="pool-th sortable" onclick="toggleSort('totalFpts')" id="th-totalfpts">Total</div>
+              <div class="pool-th sortable" onclick="toggleSort('avgFpts')" id="th-avgfpts">Avg Fpts</div>
+              <div class="pool-th sortable" onclick="toggleSort('totalFpts')" id="th-totalfpts">Total ↓</div>
               <div class="pool-th sortable" onclick="toggleSort('rating')" id="th-rating">Rating</div>
               <div class="pool-th">Owner</div>
               <div class="pool-th">Country</div>
@@ -218,16 +218,19 @@
 <script src="../js/supabase.js"></script>
 <script>
 let allPlayers = [];
+let allPlayersRaw = []; // full unfiltered list for re-ranking
 let rosterMap = {};   // player_id -> team name
 let myTeamId = null;
 let myRosterIds = new Set();
 let fantasyMap = {};  // player_id -> { total, avg, tournaments }
+let leagueSettings = null;
 let filters = { availability: 'all', rating: 'all', country: 'all' };
-let sortField = 'avgFpts'; // default sort by avg fantasy pts
+let sortField = 'totalFpts'; // default sort by total fantasy pts
 let sortAsc = false;
 let searchQuery = '';
 let currentPage = 0;
 const PAGE_SIZE = 50;
+const POOL_SIZE = 100;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireAuth();
@@ -241,7 +244,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Load team info & league settings
-  let leagueSettings = null;
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
   if (teams?.length) {
     const savedId = getSelectedTeamId();
@@ -262,17 +264,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Load all players
-  const { data: players } = await db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false });
-  allPlayers = players || [];
-
-  // Load ALL player_scores to compute fantasy points
-  const { data: allScores } = await db
-    .from('player_scores').select('*')
-    .order('round', { ascending: true });
+  // Load all players and scores in parallel
+  const [playersRes, scoresRes] = await Promise.all([
+    db.from('players').select('*').eq('active', true).order('pdga_rating', { ascending: false }),
+    db.from('player_scores').select('*').order('round', { ascending: true }),
+  ]);
+  allPlayersRaw = playersRes.data || [];
 
   // Compute fantasy points per player
-  computeFantasyStats(allScores || [], leagueSettings);
+  computeFantasyStats(scoresRes.data || [], leagueSettings);
+
+  // Build top 100: scored players by total fantasy pts, then fill with best PDGA ratings
+  const scored = allPlayersRaw
+    .filter(p => fantasyMap[p.id] && fantasyMap[p.id].tournaments > 0)
+    .sort((a, b) => (fantasyMap[b.id]?.total || 0) - (fantasyMap[a.id]?.total || 0));
+  const unscored = allPlayersRaw
+    .filter(p => !fantasyMap[p.id] || fantasyMap[p.id].tournaments === 0)
+    .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
+
+  allPlayers = scored.concat(unscored).slice(0, POOL_SIZE);
 
   // Build country filter
   const countries = [...new Set(allPlayers.map(p => p.nationality).filter(Boolean))].sort();
@@ -297,6 +307,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentPage = 0;
     renderPlayers();
   });
+
+  // Realtime: re-rank when scores update
+  db.channel('pool-scores')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'player_scores' }, async () => {
+      const { data: freshScores } = await db.from('player_scores').select('*').order('round', { ascending: true });
+      fantasyMap = {};
+      computeFantasyStats(freshScores || [], leagueSettings);
+
+      // Re-build the top 100
+      const scored = allPlayersRaw
+        .filter(p => fantasyMap[p.id] && fantasyMap[p.id].tournaments > 0)
+        .sort((a, b) => (fantasyMap[b.id]?.total || 0) - (fantasyMap[a.id]?.total || 0));
+      const unscored = allPlayersRaw
+        .filter(p => !fantasyMap[p.id] || fantasyMap[p.id].tournaments === 0)
+        .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
+      allPlayers = scored.concat(unscored).slice(0, POOL_SIZE);
+
+      updateCounts();
+      renderPlayers();
+      showToast('Player rankings updated!', 'info', 2000);
+    })
+    .subscribe();
 });
 
 function computeFantasyStats(allScores, leagueSettings) {
@@ -393,20 +425,29 @@ function renderPlayers() {
     return true;
   });
 
-  // Sort
+  // Sort: scored players always above unscored (unless sorting by rating)
   filtered.sort((a, b) => {
-    let va, vb;
-    if (sortField === 'avgFpts') {
-      va = fantasyMap[a.id]?.avg || 0;
-      vb = fantasyMap[b.id]?.avg || 0;
-    } else if (sortField === 'totalFpts') {
-      va = fantasyMap[a.id]?.total || 0;
-      vb = fantasyMap[b.id]?.total || 0;
+    const fmA = fantasyMap[a.id];
+    const fmB = fantasyMap[b.id];
+    const hasA = fmA && fmA.tournaments > 0;
+    const hasB = fmB && fmB.tournaments > 0;
+
+    if (sortField === 'totalFpts' || sortField === 'avgFpts') {
+      // Scored players always come first
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+      // Both unscored: sort by PDGA rating
+      if (!hasA && !hasB) return (b.pdga_rating || 0) - (a.pdga_rating || 0);
+      // Both scored: sort by selected field
+      const va = sortField === 'totalFpts' ? (fmA?.total || 0) : (fmA?.avg || 0);
+      const vb = sortField === 'totalFpts' ? (fmB?.total || 0) : (fmB?.avg || 0);
+      return sortAsc ? va - vb : vb - va;
     } else {
-      va = a.pdga_rating || 0;
-      vb = b.pdga_rating || 0;
+      // Rating sort
+      const va = a.pdga_rating || 0;
+      const vb = b.pdga_rating || 0;
+      return sortAsc ? va - vb : vb - va;
     }
-    return sortAsc ? va - vb : vb - va;
   });
 
   const total = filtered.length;
