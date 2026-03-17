@@ -56,7 +56,8 @@ async function loadProfile(playerId) {
   profileState.player = playerRes.data;
 
   if (teamsRes.data?.length) {
-    const team = teamsRes.data[0];
+    const savedId = getSelectedTeamId();
+    const team = (savedId ? teamsRes.data.find(t => t.id === savedId) : null) || teamsRes.data[0];
     profileState.myTeamId = team.id;
     profileState.leagueSettings = team.leagues?.settings;
     document.getElementById('league-name-display').textContent = team.leagues?.name || '—';

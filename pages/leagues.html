@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Leagues — Bullseye Fantasy DG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    .leagues-page {
+      min-height: 100vh;
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .leagues-header {
+      width: 100%;
+      max-width: 720px;
+      padding: 48px 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .leagues-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .leagues-brand h1 {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+      color: var(--text-primary);
+    }
+    .leagues-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .leagues-user-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .leagues-body {
+      width: 100%;
+      max-width: 720px;
+      padding: 32px 20px 60px;
+    }
+    .leagues-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    .leagues-subtitle {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+    }
+    .league-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .league-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .league-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .league-card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .league-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .league-card-name {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+    .league-card-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .league-card-arrow {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .league-card-role {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .league-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .leagues-empty {
+      text-align: center;
+      padding: 48px 20px;
+    }
+    .leagues-empty-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+    }
+    /* Leave league confirm */
+    .leave-confirm {
+      background: var(--bg-primary);
+      border: 1px solid var(--red);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-top: 10px;
+      font-size: 0.82rem;
+    }
+    .leave-confirm p {
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+    .leave-confirm .btn-danger {
+      background: var(--red);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .leave-confirm .btn-cancel {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.78rem;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="leagues-page">
+    <div class="leagues-header">
+      <div class="leagues-brand">
+        <svg width="28" height="28" viewBox="0 0 56 56" fill="none">
+          <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+          <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+          <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+        </svg>
+        <h1>BULLSEYE</h1>
+      </div>
+      <div class="leagues-user">
+        <span class="leagues-user-name" id="user-name">—</span>
+        <div class="user-avatar" id="user-avatar" style="width:32px;height:32px;font-size:0.7rem;">??</div>
+        <button class="logout-btn" id="logout-btn" title="Sign Out" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="leagues-body">
+      <!-- Loading -->
+      <div id="loading-state">
+        <div class="skeleton" style="height:80px;border-radius:10px;margin-bottom:14px;"></div>
+        <div class="skeleton" style="height:80px;border-radius:10px;"></div>
+      </div>
+
+      <!-- Content (hidden until loaded) -->
+      <div id="leagues-content" class="hidden">
+        <div class="leagues-title">My Leagues</div>
+        <div class="leagues-subtitle" id="leagues-subtitle">Select a league to enter, or start a new one.</div>
+
+        <div class="league-cards" id="league-cards">
+          <!-- JS-injected -->
+        </div>
+
+        <div class="league-actions">
+          <button class="btn-primary" id="create-league-btn">+ Create League</button>
+          <button class="btn-secondary" id="join-league-btn">Enter Invite Code</button>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="empty-state" class="hidden leagues-empty">
+        <svg class="leagues-empty-icon" viewBox="0 0 56 56" fill="none">
+          <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2" stroke-dasharray="6 3"/>
+          <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+        </svg>
+        <div class="leagues-title" style="font-size:1.6rem;">Welcome to Bullseye</div>
+        <p style="color:var(--text-secondary);margin-bottom:24px;font-size:0.9rem;">You're not in any league yet. Create one or enter an invite code to get started.</p>
+        <div class="league-actions" style="justify-content:center;">
+          <button class="btn-primary" id="create-league-btn-empty">+ Create League</button>
+          <button class="btn-secondary" id="join-league-btn-empty">Enter Invite Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE LEAGUE MODAL -->
+  <div class="modal-overlay hidden" id="create-league-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Create League</h2>
+        <button class="modal-close" id="close-create-modal">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>League Name</label>
+          <input type="text" id="new-league-name" placeholder="e.g. Fairway Fanatics 2026">
+        </div>
+        <div class="form-group">
+          <label>Your Team Name</label>
+          <input type="text" id="new-team-name" placeholder="e.g. Chain Gang">
+        </div>
+        <div style="background:var(--bg-primary);border-radius:var(--radius-sm);padding:12px;font-size:0.8rem;color:var(--text-secondary);">
+          <strong style="color:var(--text-primary);">Default Settings</strong><br>
+          7-player rosters &middot; 5 starters &middot; $100 FAAB &middot; Snake draft &middot; Elite Series + Majors
+        </div>
+        <div id="create-league-error" class="auth-error hidden"></div>
+        <button class="btn-primary btn-full" id="create-league-submit">Create League & Get Invite Code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOIN LEAGUE MODAL -->
+  <div class="modal-overlay hidden" id="join-league-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Join a League</h2>
+        <button class="modal-close" id="close-join-modal">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Invite Code</label>
+          <input type="text" id="invite-code-input" placeholder="Enter the 8-character code">
+        </div>
+        <div id="join-league-error" class="auth-error hidden"></div>
+        <button class="btn-primary btn-full" id="join-league-submit">Find League</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase.js"></script>
+  <script>
+    let currentUser = null;
+    let userTeams = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      currentUser = user;
+
+      const name = user.user_metadata?.display_name || user.email.split('@')[0];
+      document.getElementById('user-avatar').textContent = getInitials(name);
+      document.getElementById('user-name').textContent = name;
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await db.auth.signOut();
+        window.location.href = '../index.html';
+      });
+
+      // Check for pending invite
+      const pendingCode = sessionStorage.getItem('pending_invite');
+      if (pendingCode) {
+        sessionStorage.removeItem('pending_invite');
+        window.location.href = `join.html?code=${pendingCode}`;
+        return;
+      }
+
+      await loadLeagues();
+      setupModals();
+    });
+
+    async function loadLeagues() {
+      const { data: teams } = await db
+        .from('teams')
+        .select('*, leagues(*)')
+        .eq('manager_id', currentUser.id);
+
+      userTeams = teams || [];
+      document.getElementById('loading-state').classList.add('hidden');
+
+      if (!userTeams.length) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('leagues-content').classList.remove('hidden');
+      document.getElementById('leagues-subtitle').textContent =
+        userTeams.length === 1
+          ? 'You\'re in 1 league. Select it to enter, or join another.'
+          : `You're in ${userTeams.length} leagues. Select one to enter, or join another.`;
+
+      renderLeagueCards();
+    }
+
+    async function renderLeagueCards() {
+      const container = document.getElementById('league-cards');
+
+      // For each team, get member count
+      const cards = await Promise.all(userTeams.map(async (team) => {
+        const league = team.leagues;
+        const { count } = await db
+          .from('teams')
+          .select('id', { count: 'exact', head: true })
+          .eq('league_id', league.id);
+
+        const isCommissioner = league.commissioner_id === currentUser.id;
+
+        return `
+          <div class="league-card" id="card-${team.id}">
+            <div class="league-card-icon">
+              <svg width="22" height="22" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="24" stroke="#F5A623" stroke-width="2"/>
+                <circle cx="28" cy="28" r="12" stroke="#F5A623" stroke-width="1.5"/>
+                <circle cx="28" cy="28" r="4" fill="#F5A623"/>
+              </svg>
+            </div>
+            <div class="league-card-info" onclick="enterLeague('${team.id}')">
+              <div class="league-card-name">${league.name}</div>
+              <div class="league-card-meta">
+                <span>Team: <strong>${team.name}</strong></span>
+                <span>${count || '?'} members</span>
+                <span>Season ${league.season}</span>
+                ${isCommissioner ? '<span class="league-card-role">Commissioner</span>' : ''}
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); showLeaveConfirm('${team.id}', '${league.name.replace(/'/g, "\\'")}', ${isCommissioner})"
+                    style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:6px;font-size:0.72rem;"
+                    title="Leave league">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+            <span class="league-card-arrow" onclick="enterLeague('${team.id}')">&#8250;</span>
+          </div>
+          <div id="leave-${team.id}" class="hidden"></div>
+        `;
+      }));
+
+      container.innerHTML = cards.join('');
+    }
+
+    function enterLeague(teamId) {
+      setSelectedTeamId(teamId);
+      window.location.href = 'dashboard.html';
+    }
+
+    function showLeaveConfirm(teamId, leagueName, isCommissioner) {
+      // Close any open confirms
+      document.querySelectorAll('[id^="leave-"]').forEach(el => {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+      });
+
+      const container = document.getElementById(`leave-${teamId}`);
+      if (isCommissioner) {
+        container.innerHTML = `
+          <div class="leave-confirm">
+            <p style="color:var(--red);">You're the commissioner of <strong>${leagueName}</strong>. Commissioners can't leave their own league. Transfer commissioner role first, or delete the league.</p>
+            <button class="btn-cancel" onclick="this.closest('.leave-confirm').parentElement.classList.add('hidden')">Got it</button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="leave-confirm">
+            <p>Leave <strong>${leagueName}</strong>? Your team, roster, and all data in this league will be permanently removed.</p>
+            <button class="btn-danger" onclick="leaveLeague('${teamId}')">Leave League</button>
+            <button class="btn-cancel" onclick="this.closest('.leave-confirm').parentElement.classList.add('hidden')">Cancel</button>
+          </div>
+        `;
+      }
+      container.classList.remove('hidden');
+    }
+
+    async function leaveLeague(teamId) {
+      // Delete roster entries first (cascade should handle this, but just in case)
+      await db.from('rosters').delete().eq('team_id', teamId);
+      await db.from('lineups').delete().eq('team_id', teamId);
+
+      // Delete the team
+      const { error } = await db.from('teams').delete().eq('id', teamId).eq('manager_id', currentUser.id);
+
+      if (error) {
+        showToast('Failed to leave league: ' + error.message, 'error');
+        return;
+      }
+
+      // Clear selection if this was the selected team
+      if (getSelectedTeamId() === teamId) {
+        clearSelectedTeam();
+      }
+
+      showToast('You\'ve left the league.', 'success');
+      // Reload
+      userTeams = userTeams.filter(t => t.id !== teamId);
+      if (!userTeams.length) {
+        document.getElementById('leagues-content').classList.add('hidden');
+        document.getElementById('empty-state').classList.remove('hidden');
+      } else {
+        renderLeagueCards();
+      }
+    }
+
+    function setupModals() {
+      // Create league modal
+      const createModal = document.getElementById('create-league-modal');
+      const joinModal = document.getElementById('join-league-modal');
+
+      // Wire up all create buttons (main + empty state)
+      ['create-league-btn', 'create-league-btn-empty'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', () => createModal.classList.remove('hidden'));
+      });
+
+      // Wire up all join buttons
+      ['join-league-btn', 'join-league-btn-empty'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', () => joinModal.classList.remove('hidden'));
+      });
+
+      // Close buttons
+      document.getElementById('close-create-modal').addEventListener('click', () => createModal.classList.add('hidden'));
+      document.getElementById('close-join-modal').addEventListener('click', () => joinModal.classList.add('hidden'));
+
+      // Click outside to close
+      createModal.addEventListener('click', e => { if (e.target === createModal) createModal.classList.add('hidden'); });
+      joinModal.addEventListener('click', e => { if (e.target === joinModal) joinModal.classList.add('hidden'); });
+
+      // Create league submit
+      document.getElementById('create-league-submit').addEventListener('click', async () => {
+        const leagueName = document.getElementById('new-league-name').value.trim();
+        const teamName = document.getElementById('new-team-name').value.trim();
+        const errorEl = document.getElementById('create-league-error');
+        const btn = document.getElementById('create-league-submit');
+
+        if (!leagueName || !teamName) {
+          errorEl.textContent = 'Please fill in all fields.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+        errorEl.classList.add('hidden');
+
+        const { data: league, error: leagueErr } = await db
+          .from('leagues')
+          .insert({ name: leagueName, commissioner_id: currentUser.id, season: 2026 })
+          .select()
+          .single();
+
+        if (leagueErr) {
+          errorEl.textContent = leagueErr.message;
+          errorEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = 'Create League & Get Invite Code';
+          return;
+        }
+
+        const { data: newTeam } = await db.from('teams').insert({
+          league_id: league.id,
+          manager_id: currentUser.id,
+          name: teamName,
+          faab_balance: 100,
+          draft_position: 1
+        }).select().single();
+
+        await db.from('drafts').insert({ league_id: league.id, status: 'pending', type: 'snake' });
+
+        showToast(`League created! Invite code: ${league.invite_code}`, 'success', 8000);
+        createModal.classList.add('hidden');
+
+        // Select the new league and enter it
+        if (newTeam) {
+          setSelectedTeamId(newTeam.id);
+          window.location.href = 'dashboard.html';
+        } else {
+          window.location.reload();
+        }
+      });
+
+      // Join league submit
+      document.getElementById('join-league-submit').addEventListener('click', async () => {
+        const code = document.getElementById('invite-code-input').value.trim().toLowerCase();
+        const errorEl = document.getElementById('join-league-error');
+
+        if (!code || code.length < 6) {
+          errorEl.textContent = 'Please enter a valid invite code.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        const { data: league, error } = await db
+          .from('leagues')
+          .select('id, name')
+          .eq('invite_code', code)
+          .single();
+
+        if (error || !league) {
+          errorEl.textContent = 'Invalid invite code — league not found.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        // Check if already a member
+        const { data: existing } = await db
+          .from('teams')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('manager_id', currentUser.id)
+          .single();
+
+        if (existing) {
+          showToast("You're already in this league!", 'info');
+          joinModal.classList.add('hidden');
+          return;
+        }
+
+        // Redirect to join page with code
+        sessionStorage.setItem('pending_invite', code);
+        window.location.href = `join.html?code=${code}`;
+      });
+    }
+  </script>
+</body>
+</html>

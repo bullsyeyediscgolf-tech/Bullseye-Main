@@ -219,12 +219,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load team + roster
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
   if (teams?.length) {
-    document.getElementById('league-name-display').textContent = teams[0].leagues?.name || '—';
-    const { data: roster } = await db.from('rosters').select('player_id').eq('team_id', teams[0].id).eq('is_active', true);
+    const savedId = getSelectedTeamId();
+    const myTeam = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
+    document.getElementById('league-name-display').textContent = myTeam.leagues?.name || '—';
+    const { data: roster } = await db.from('rosters').select('player_id').eq('team_id', myTeam.id).eq('is_active', true);
     myRosterIds = new Set((roster || []).map(r => r.player_id));
 
     // Load all my lineups
-    const { data: lineups } = await db.from('lineups').select('*, players(*)').eq('team_id', teams[0].id);
+    const { data: lineups } = await db.from('lineups').select('*, players(*)').eq('team_id', myTeam.id);
     (lineups || []).forEach(l => {
       if (!myLineups[l.tournament_id]) myLineups[l.tournament_id] = [];
       myLineups[l.tournament_id].push(l);

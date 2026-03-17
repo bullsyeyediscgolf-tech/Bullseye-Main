@@ -265,10 +265,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('logout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../index.html'; });
 
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
-  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+  if (!teams?.length) { window.location.href = 'leagues.html'; return; }
 
-  waiverState.myTeam = teams[0];
-  waiverState.league = teams[0].leagues;
+  const savedId = getSelectedTeamId();
+  waiverState.myTeam = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
+  waiverState.league = waiverState.myTeam.leagues;
   document.getElementById('league-name-display').textContent = waiverState.league.name;
 
   // Load my roster

@@ -68,10 +68,12 @@ async function loadLeaderboard(user) {
     .from('teams').select('*, leagues(*)')
     .eq('manager_id', user.id);
 
-  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+  if (!teams?.length) { window.location.href = 'leagues.html'; return; }
 
-  lbState.myTeam = teams[0];
-  lbState.league = teams[0].leagues;
+  const savedId = getSelectedTeamId();
+  const selectedTeam = savedId ? teams.find(t => t.id === savedId) : teams[0];
+  lbState.myTeam = selectedTeam || teams[0];
+  lbState.league = lbState.myTeam.leagues;
   lbState.isCommissioner = lbState.league.commissioner_id === user.id;
 
   document.getElementById('league-name-display').textContent = lbState.league.name;

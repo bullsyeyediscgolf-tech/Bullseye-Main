@@ -191,9 +191,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
-  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+  if (!teams?.length) { window.location.href = 'leagues.html'; return; }
 
-  const myTeam = teams[0];
+  const savedId = getSelectedTeamId();
+  const myTeam = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
   const league = myTeam.leagues;
   document.getElementById('league-name-display').textContent = league.name;
 

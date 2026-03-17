@@ -55,12 +55,18 @@ async function loadUserLeagues(user) {
   document.getElementById('loading-state').classList.add('hidden');
 
   if (error || !userTeams || userTeams.length === 0) {
-    document.getElementById('no-league-state').classList.remove('hidden');
+    // Redirect to leagues page to create/join
+    window.location.href = 'leagues.html';
     return;
   }
 
-  // Use first league (TODO: league switcher)
-  const team = userTeams[0];
+  // Use selected league from localStorage, or first
+  const savedId = getSelectedTeamId();
+  let team = savedId ? userTeams.find(t => t.id === savedId) : null;
+  if (!team) {
+    team = userTeams[0];
+    setSelectedTeamId(team.id);
+  }
   const league = team.leagues;
 
   AppState.currentTeam = team;

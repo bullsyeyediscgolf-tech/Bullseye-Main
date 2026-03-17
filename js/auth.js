@@ -3,10 +3,10 @@
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // If already logged in, redirect to dashboard
+  // If already logged in, redirect to leagues hub
   const { data: { session } } = await db.auth.getSession();
   if (session) {
-    window.location.href = 'pages/dashboard.html';
+    window.location.href = 'pages/leagues.html';
     return;
   }
 
@@ -58,7 +58,7 @@ function setupLoginForm() {
       sessionStorage.removeItem('pending_invite');
       window.location.href = `pages/join.html?code=${pendingCode}`;
     } else {
-      window.location.href = 'pages/dashboard.html';
+      window.location.href = 'pages/leagues.html';
     }
   });
 

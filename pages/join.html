@@ -88,6 +88,7 @@
 
       if (existing) {
         showToast("You're already in this league!", 'info');
+        setSelectedTeamId(existing.id);
         setTimeout(() => window.location.href = 'dashboard.html', 1500);
         return;
       }
@@ -113,13 +114,13 @@
           .select('id')
           .eq('league_id', league.id);
 
-        const { error: insertErr } = await db.from('teams').insert({
+        const { data: newTeam, error: insertErr } = await db.from('teams').insert({
           league_id: league.id,
           manager_id: user.id,
           name: teamName,
           faab_balance: league.settings?.starting_faab || 100,
           draft_position: (teams?.length || 0) + 1
-        });
+        }).select().single();
 
         if (insertErr) {
           errorEl.textContent = insertErr.message;
@@ -131,6 +132,7 @@
         }
 
         sessionStorage.removeItem('pending_invite');
+        if (newTeam) setSelectedTeamId(newTeam.id);
         showToast(`Welcome to ${league.name}!`, 'success');
         setTimeout(() => window.location.href = 'dashboard.html', 1200);
       });

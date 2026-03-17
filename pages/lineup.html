@@ -379,10 +379,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load team
   const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
-  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+  if (!teams?.length) { window.location.href = 'leagues.html'; return; }
 
-  lineupState.team = teams[0];
-  lineupState.league = teams[0].leagues;
+  const savedId = getSelectedTeamId();
+  lineupState.team = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
+  lineupState.league = lineupState.team.leagues;
   document.getElementById('league-name-display').textContent = lineupState.league?.name || '—';
 
   // Load roster

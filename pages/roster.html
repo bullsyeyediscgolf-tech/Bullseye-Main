@@ -191,9 +191,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     .select('*, leagues(*)')
     .eq('manager_id', user.id);
 
-  if (!teams?.length) { window.location.href = 'dashboard.html'; return; }
+  if (!teams?.length) { window.location.href = 'leagues.html'; return; }
 
-  const team = teams[0];
+  const savedId = getSelectedTeamId();
+  const team = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
   document.getElementById('league-name-display').textContent = team.leagues?.name || '—';
   document.getElementById('team-name-title').textContent = team.name;
   document.getElementById('page-title').textContent = team.name;

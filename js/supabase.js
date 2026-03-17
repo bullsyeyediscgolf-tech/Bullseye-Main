@@ -158,6 +158,53 @@ function applySpoilerShields() {
 }
 
 // ============================================
+// LEAGUE SELECTION
+// ============================================
+function getSelectedTeamId() {
+  return localStorage.getItem('selected_team_id');
+}
+
+function setSelectedTeamId(teamId) {
+  localStorage.setItem('selected_team_id', teamId);
+}
+
+function clearSelectedTeam() {
+  localStorage.removeItem('selected_team_id');
+}
+
+// Returns the team matching localStorage selection, or first team, or null
+async function getSelectedTeam(userId) {
+  const { data: teams } = await db
+    .from('teams')
+    .select('*, leagues(*)')
+    .eq('manager_id', userId);
+
+  if (!teams || !teams.length) return null;
+
+  const savedId = getSelectedTeamId();
+  if (savedId) {
+    const match = teams.find(t => t.id === savedId);
+    if (match) return match;
+  }
+
+  // Fallback to first team & persist
+  setSelectedTeamId(teams[0].id);
+  return teams[0];
+}
+
+// Auto-add "My Leagues" link to sidebar on all pages
+document.addEventListener('DOMContentLoaded', () => {
+  const selector = document.querySelector('.league-selector');
+  if (selector && !document.querySelector('.leagues-page')) {
+    const link = document.createElement('a');
+    link.href = 'leagues.html';
+    link.style.cssText = 'font-size:0.68rem;color:var(--accent);text-decoration:none;margin-top:2px;display:inline-block;';
+    link.textContent = 'My Leagues';
+    selector.appendChild(link);
+  }
+});
+
+// ============================================
 // LOCAL STATE
 // ============================================
 const AppState = {

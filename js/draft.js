@@ -43,11 +43,12 @@ async function loadDraftRoom(user) {
     .eq('manager_id', user.id);
 
   if (!userTeams?.length) {
-    window.location.href = 'dashboard.html';
+    window.location.href = 'leagues.html';
     return;
   }
 
-  const myTeam = userTeams[0];
+  const savedId = getSelectedTeamId();
+  const myTeam = (savedId ? userTeams.find(t => t.id === savedId) : null) || userTeams[0];
   const league = myTeam.leagues;
   draftState.myTeam = myTeam;
   draftState.league = league;
