@@ -342,7 +342,7 @@
         const isCommissioner = league.commissioner_id === currentUser.id;
 
         return `
-          <div class="league-card" id="card-${team.id}">
+          <div class="league-card" id="card-${team.id}" onclick="enterLeague('${team.id}')">
             <div class="league-card-icon">
               <svg width="22" height="22" viewBox="0 0 56 56" fill="none">
                 <circle cx="28" cy="28" r="24" stroke="#F5A623" stroke-width="2"/>
@@ -350,7 +350,7 @@
                 <circle cx="28" cy="28" r="4" fill="#F5A623"/>
               </svg>
             </div>
-            <div class="league-card-info" onclick="enterLeague('${team.id}')">
+            <div class="league-card-info">
               <div class="league-card-name">${league.name}</div>
               <div class="league-card-meta">
                 <span>Team: <strong>${team.name}</strong></span>
@@ -368,7 +368,7 @@
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
             </button>
-            <span class="league-card-arrow" onclick="enterLeague('${team.id}')">&#8250;</span>
+            <span class="league-card-arrow">&#8250;</span>
           </div>
           <div id="leave-${team.id}" class="hidden"></div>
         `;
