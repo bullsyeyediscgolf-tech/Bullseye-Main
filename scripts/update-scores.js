@@ -65,11 +65,12 @@ async function fetchPdgaEvent(tournId) {
   return res.json();
 }
 
-async function fetchPdgaScores(tournId, round) {
+/** Fetch full round leaderboard (all players) for a division */
+async function fetchPdgaRound(tournId, division, round) {
   const res = await fetch(
-    `${PDGA_BASE}/live_results_fetch_event_top_players?TournID=${tournId}&Round=${round}`
+    `${PDGA_BASE}/live_results_fetch_round?TournID=${tournId}&Division=${division}&Round=${round}`
   );
-  if (!res.ok) throw new Error(`PDGA scores ${tournId} R${round}: ${res.status}`);
+  if (!res.ok) throw new Error(`PDGA round ${tournId} ${division} R${round}: ${res.status}`);
   return res.json();
 }
 
@@ -94,9 +95,6 @@ async function fetchDgptStats(tournId, division = 'MPO') {
     const html = await res.text();
 
     // Parse with a regex-based approach (no DOM in Node without extra deps)
-    // Each row: <tr>...<td>pos</td><td>name</td><td>total</td><td>scores</td>
-    //   <td>fwy</td><td>parked</td><td>c1ir</td><td>c2ir</td><td>scramble</td>
-    //   <td>c1x</td><td>c2put</td><td>ob</td></tr>
     const rowRegex = /<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi;
 
     const stats = {};
@@ -119,20 +117,6 @@ async function fetchDgptStats(tournId, division = 'MPO') {
 }
 
 // ---------------------------------------------------------------------------
-// Eagle detection from hole-by-hole scores
-// ---------------------------------------------------------------------------
-
-function countEagles(scoresStr, parLayout) {
-  if (!scoresStr || !parLayout) return 0;
-  const scores = scoresStr.split(',').map(Number).filter(n => !isNaN(n) && n > 0);
-  let eagles = 0;
-  for (let i = 0; i < scores.length && i < parLayout.length; i++) {
-    if (scores[i] <= parLayout[i] - 2) eagles++;
-  }
-  return eagles;
-}
-
-// ---------------------------------------------------------------------------
 // Main update flow
 // ---------------------------------------------------------------------------
 
@@ -142,7 +126,7 @@ async function main() {
     query: { select: '*', season: 'eq.2026', order: 'start_date.asc' },
   });
 
-  // Also load player lookup (pdga_number → id)
+  // Load player lookup (pdga_number → id)
   const players = await supabaseRpc('players', {
     query: { select: 'id,name,pdga_number', active: 'eq.true' },
   });
@@ -151,28 +135,6 @@ async function main() {
   for (const p of players) {
     if (p.pdga_number) playerByPdga[p.pdga_number] = p;
     playerByName[p.name] = p;
-  }
-
-  // Fetch PDGA layout info for eagle detection
-  async function getParLayout(tournId) {
-    try {
-      const res = await fetch(
-        `https://www.pdga.com/api/v1/live-tournaments/${tournId}/live-layouts?include=LiveLayoutDetails`
-      );
-      if (!res.ok) return null;
-      const layouts = await res.json();
-      // Find MPO layout (usually the one with more details)
-      for (const layout of layouts) {
-        if (layout.liveLayoutDetails && layout.liveLayoutDetails.length > 0) {
-          return layout.liveLayoutDetails
-            .sort((a, b) => a.holeOrdinal - b.holeOrdinal)
-            .map((h) => h.par);
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
   }
 
   // Process each active or completed tournament that has a pdga_id
@@ -204,7 +166,6 @@ async function main() {
     }
 
     const totalRounds = mpoDiv.LatestRound || tourn.rounds;
-    const parLayout = await getParLayout(tourn.pdga_id);
 
     // Update tournament status
     const highestRound = eventData.data?.HighestCompletedRound || 0;
@@ -220,72 +181,81 @@ async function main() {
       });
     }
 
-    // Fetch scores for each round
+    // Fetch scores for each completed round using the full leaderboard endpoint
     for (let rd = 1; rd <= highestRound; rd++) {
       console.log(`  Round ${rd}...`);
       let roundData;
       try {
-        roundData = await fetchPdgaScores(tourn.pdga_id, rd);
+        roundData = await fetchPdgaRound(tourn.pdga_id, 'MPO', rd);
       } catch (err) {
         console.warn(`    Fetch error: ${err.message}`);
         continue;
       }
 
-      const mpoStanding = roundData.data?.DivisionStandings?.find(
-        (d) => d.division === 'MPO'
-      );
-      if (!mpoStanding || !mpoStanding.scores) continue;
+      const allScores = roundData.data?.scores;
+      if (!allScores || allScores.length === 0) {
+        console.warn(`    No scores returned`);
+        continue;
+      }
 
-      // Determine lead card for this round:
-      // R1 = nobody. R2+ = top 4 from prior round cumulative standings.
+      console.log(`    Got ${allScores.length} players`);
+
+      // Lead card: R1 = nobody. R2+ = top 4 from prior round standings.
+      // The API gives us PreviousPlace on each player, but we can also
+      // fetch the prior round and sort by RunningPlace.
       const leadCardPdgas = new Set();
       if (rd > 1) {
-        // Fetch prior round to get top 4 cumulative
         try {
-          const priorData = await fetchPdgaScores(tourn.pdga_id, rd - 1);
-          const priorMpo = priorData.data?.DivisionStandings?.find(
-            (d) => d.division === 'MPO'
-          );
-          if (priorMpo?.scores) {
-            // scores are already sorted by RunningPlace
-            const top4 = priorMpo.scores.slice(0, 4);
-            for (const p of top4) {
+          const priorRound = await fetchPdgaRound(tourn.pdga_id, 'MPO', rd - 1);
+          const priorScores = priorRound.data?.scores;
+          if (priorScores) {
+            // Sort by RunningPlace (cumulative standing after that round)
+            const sorted = [...priorScores].sort(
+              (a, b) => (a.RunningPlace || 999) - (b.RunningPlace || 999)
+            );
+            for (const p of sorted.slice(0, 4)) {
               leadCardPdgas.add(String(p.PDGANum));
             }
+            console.log(
+              `    Lead card: ${sorted
+                .slice(0, 4)
+                .map((p) => p.ShortName)
+                .join(', ')}`
+            );
           }
         } catch {
           // non-fatal
         }
       }
 
+      // Build score rows
       const scoreRows = [];
-      for (const ps of mpoStanding.scores) {
+      for (const ps of allScores) {
         const pdga = String(ps.PDGANum);
         const player = playerByPdga[pdga] || playerByName[ps.Name];
         if (!player) continue; // not in our player pool
 
-        // Parse per-round score from the Rounds CSV
-        const roundScores = ps.Rounds ? ps.Rounds.split(',').map(Number) : [];
-        // RoundtoPar is relative to par for this specific round
         const scoreToPar = ps.RoundtoPar;
 
-        // Eagle count from hole-by-hole Scores field
+        // Eagle detection from HoleScores + Pars
         let eagles = 0;
-        if (ps.Scores && parLayout) {
-          // Scores field has all rounds concatenated; extract this round's holes
-          const allHoles = ps.Scores.split(',').filter((s) => s.trim() !== '');
-          const holesPerRound = parLayout.length;
-          const startIdx = (rd - 1) * holesPerRound;
-          const roundHoles = allHoles.slice(startIdx, startIdx + holesPerRound).map(Number);
-          for (let i = 0; i < roundHoles.length && i < parLayout.length; i++) {
-            if (roundHoles[i] > 0 && roundHoles[i] <= parLayout[i] - 2) eagles++;
+        if (ps.HoleScores && ps.Pars) {
+          const holes = Array.isArray(ps.HoleScores) ? ps.HoleScores : ps.HoleScores.split(',');
+          const pars = ps.Pars.split(',');
+          for (let i = 0; i < holes.length; i++) {
+            const score = parseInt(holes[i], 10);
+            const par = parseInt(pars[i], 10);
+            if (score > 0 && par > 0 && score <= par - 2) eagles++;
           }
         }
 
         const isLeadCard = leadCardPdgas.has(pdga);
-        const finishPos = rd === highestRound && highestRound >= totalRounds
-          ? ps.RunningPlace
-          : null;
+
+        // Finish position: only set on the final round of a completed tournament
+        const finishPos =
+          rd === highestRound && highestRound >= totalRounds
+            ? ps.RunningPlace
+            : null;
 
         scoreRows.push({
           player_id: player.id,

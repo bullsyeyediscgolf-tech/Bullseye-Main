@@ -2,11 +2,8 @@ name: Update Tournament Scores
 
 on:
   schedule:
-    # Runs every Sunday and Monday at 2:00 AM UTC (Sat/Sun evening US time)
-    # Catches end-of-tournament results for most DGPT events
-    - cron: '0 2 * * 0,1'
-    # Also run at 11 PM UTC on Fri/Sat/Sun to catch live tournament updates
-    - cron: '0 23 * * 5,6,0'
+    # Run daily at 6 AM UTC (covers Wed-Sun tournament days, including Worlds)
+    - cron: '0 6 * * *'
   workflow_dispatch: # Allow manual trigger from GitHub UI
 
 jobs:
