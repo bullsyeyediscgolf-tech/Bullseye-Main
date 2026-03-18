@@ -11,6 +11,8 @@ let profileState = {
   rosterInfo: null,  // { teamId, teamName } or null
   myTeamId: null,
   leagueSettings: null,
+  nextTournament: null,   // next upcoming tournament
+  isRegistered: false,    // is this player registered for the next tournament
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -77,16 +79,30 @@ async function loadProfile(playerId) {
     }
   }
 
-  // Load scores, stats, and tournaments in parallel
-  const [scoresRes, statsRes, tournamentsRes] = await Promise.all([
+  // Load scores, stats, tournaments, and next upcoming tournament in parallel
+  const [scoresRes, statsRes, tournamentsRes, upcomingRes] = await Promise.all([
     db.from('player_scores').select('*').eq('player_id', playerId).order('round', { ascending: true }),
     db.from('player_stats').select('*').eq('player_id', playerId),
     db.from('tournaments').select('*').in('status', ['active', 'completed']).eq('season', 2026).order('start_date', { ascending: true }),
+    db.from('tournaments').select('*').eq('status', 'upcoming').eq('season', 2026).order('start_date', { ascending: true }).limit(1),
   ]);
 
   profileState.scores = scoresRes.data || [];
   profileState.stats = statsRes.data || [];
   profileState.tournaments = tournamentsRes.data || [];
+
+  // Check registration for the next upcoming tournament
+  const nextTourn = upcomingRes.data?.[0];
+  if (nextTourn) {
+    profileState.nextTournament = nextTourn;
+    const { data: regRows } = await db
+      .from('tournament_registrations')
+      .select('id')
+      .eq('tournament_id', nextTourn.id)
+      .eq('player_id', playerId)
+      .limit(1);
+    profileState.isRegistered = regRows && regRows.length > 0;
+  }
 
   document.getElementById('loading-state').classList.add('hidden');
   document.getElementById('profile-content').classList.remove('hidden');
@@ -115,6 +131,9 @@ function renderHero() {
   } else {
     ownerRow.innerHTML = `<span class="pool-owner free">Free Agent</span>`;
   }
+
+  // Registration badge for next upcoming tournament
+  renderRegistrationBadge();
 
   // Compute season-level fantasy stats
   const tournamentFantasy = computeAllFantasyPoints();
@@ -362,6 +381,38 @@ function renderTournamentLog() {
   }).join('');
 
   container.innerHTML = html;
+}
+
+// ── REGISTRATION BADGE ──
+function renderRegistrationBadge() {
+  const container = document.getElementById('profile-owner-row');
+  const nextTourn = profileState.nextTournament;
+  if (!nextTourn) return; // no upcoming tournament
+
+  const tournName = nextTourn.name;
+  const startDate = new Date(nextTourn.start_date + 'T00:00:00');
+  const now = new Date();
+  const daysUntil = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+
+  if (profileState.isRegistered) {
+    // Always show green badge if registered
+    container.innerHTML += `
+      <span class="registration-badge registered" title="Registered for ${tournName}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:4px;">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Registered for ${tournName}
+      </span>`;
+  } else if (daysUntil <= 3) {
+    // Show red warning only within 3 days of tournament start
+    container.innerHTML += `
+      <span class="registration-badge not-registered" title="Not registered for ${tournName}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:4px;">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Not registered for ${tournName}
+      </span>`;
+  }
 }
 
 // ── HELPERS ──
