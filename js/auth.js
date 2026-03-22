@@ -52,6 +52,22 @@ function setupLoginForm() {
       return;
     }
 
+    // Ensure display_name is set in user_metadata
+    // (Supabase can lose options.data during email confirmation flow)
+    const currentName = data.user?.user_metadata?.display_name;
+    const pendingName = localStorage.getItem('pending_display_name');
+    if (!currentName && pendingName) {
+      await db.auth.updateUser({ data: { display_name: pendingName } });
+      localStorage.removeItem('pending_display_name');
+    } else if (!currentName) {
+      // Last resort: use the email prefix
+      const fallbackName = email.split('@')[0];
+      await db.auth.updateUser({ data: { display_name: fallbackName } });
+    } else {
+      // Metadata is fine, clean up any stale pending name
+      localStorage.removeItem('pending_display_name');
+    }
+
     // Check for pending invite code
     const pendingCode = sessionStorage.getItem('pending_invite');
     if (pendingCode) {
@@ -105,6 +121,9 @@ function setupSignupForm() {
       showAuthError(errorEl, error.message);
       return;
     }
+
+    // Cache display name locally so it survives the email confirmation flow
+    localStorage.setItem('pending_display_name', name);
 
     successEl.textContent = '✓ Account created! Check your email to confirm, then sign in.';
     successEl.classList.remove('hidden');

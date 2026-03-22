@@ -22,6 +22,18 @@ async function requireAuth() {
     window.location.href = '/index.html';
     return null;
   }
+
+  // Safety net: if display_name is missing, fix it from pending cache or email
+  if (!user.user_metadata?.display_name) {
+    const pendingName = localStorage.getItem('pending_display_name');
+    const fixedName = pendingName || user.email?.split('@')[0] || 'Player';
+    await db.auth.updateUser({ data: { display_name: fixedName } });
+    localStorage.removeItem('pending_display_name');
+    // Refresh user object with updated metadata
+    const { data: { user: freshUser } } = await db.auth.getUser();
+    if (freshUser) return freshUser;
+  }
+
   return user;
 }
 
