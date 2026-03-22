@@ -192,7 +192,7 @@ async function getSelectedTeam(userId) {
   return teams[0];
 }
 
-// Auto-add "My Leagues" link to sidebar on all pages
+// Auto-add "My Leagues" link and mobile menu to sidebar on all pages
 document.addEventListener('DOMContentLoaded', () => {
   const selector = document.querySelector('.league-selector');
   if (selector && !document.querySelector('.leagues-page')) {
@@ -201,6 +201,44 @@ document.addEventListener('DOMContentLoaded', () => {
     link.style.cssText = 'font-size:0.68rem;color:var(--accent);text-decoration:none;margin-top:2px;display:inline-block;';
     link.textContent = 'My Leagues';
     selector.appendChild(link);
+  }
+
+  // Mobile menu: add hamburger button and overlay
+  const sidebar = document.querySelector('.sidebar');
+  const topbar = document.querySelector('.topbar');
+  if (sidebar && topbar) {
+    // Create hamburger button
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'mobile-menu-btn';
+    menuBtn.setAttribute('aria-label', 'Open menu');
+    menuBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+    topbar.insertBefore(menuBtn, topbar.firstChild);
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function openMenu() {
+      sidebar.classList.add('open');
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMenu() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.contains('open') ? closeMenu() : openMenu();
+    });
+    overlay.addEventListener('click', closeMenu);
+
+    // Close menu when a nav link is clicked
+    sidebar.querySelectorAll('.nav-item, a').forEach(link => {
+      link.addEventListener('click', closeMenu);
+    });
   }
 });
 
