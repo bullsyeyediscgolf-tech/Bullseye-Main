@@ -1117,5 +1117,8 @@ input::placeholder { color: var(--text-muted); }
   .main-content { margin-left: 0; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .page-content { padding: 16px; }
-  .topbar { padding: 0 12px; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar-title { font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar-actions { min-width: 0; flex-shrink: 1; }
+  .topbar-actions input { width: 100% !important; max-width: 140px; font-size: 0.8rem; padding: 7px 10px; }
 }

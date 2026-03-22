@@ -74,6 +74,25 @@
       .pool-th:nth-child(6), .pool-row > *:nth-child(6),
       .pool-th:nth-child(7), .pool-row > *:nth-child(7) { display: none; }
     }
+    @media (max-width: 480px) {
+      .pool-table-wrap { border-radius: 0; margin: 0 -16px; border-left: none; border-right: none; }
+      .pool-table-header, .pool-row {
+        grid-template-columns: 26px 1fr 56px 56px;
+        padding: 8px 10px;
+      }
+      /* Hide Rating column on small phones */
+      .pool-th:nth-child(5), .pool-row > *:nth-child(5),
+      .pool-th:nth-child(6), .pool-row > *:nth-child(6),
+      .pool-th:nth-child(7), .pool-row > *:nth-child(7) { display: none; }
+      .pool-th { font-size: 0.6rem; letter-spacing: 0.5px; }
+      .pool-rank { font-size: 0.65rem; }
+      .pool-player-link { font-size: 0.8rem; }
+      .pool-rating { font-size: 0.78rem; }
+      .filter-card { padding: 14px; }
+      .filter-section-label { font-size: 0.62rem; }
+      .filter-option { font-size: 0.78rem; padding: 6px 8px; }
+      #tournament-filter { font-size: 0.78rem; padding: 6px 8px; }
+    }
   </style>
 </head>
 <body>
@@ -141,7 +160,7 @@
     <header class="topbar">
       <h1 class="topbar-title">Player Pool</h1>
       <div class="topbar-actions">
-        <input type="text" id="global-search" placeholder="Search players..." style="width:220px;">
+        <input type="text" id="global-search" placeholder="Search players..." style="width:220px;max-width:100%;min-width:0;">
       </div>
     </header>
 
