@@ -184,7 +184,7 @@
         <h1>BULLSEYE</h1>
       </div>
       <div class="leagues-user">
-        <span class="leagues-user-name" id="user-name">—</span>
+        <span class="leagues-user-name" id="user-name" title="Click to edit your name" style="cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;">—</span>
         <div class="user-avatar" id="user-avatar" style="width:32px;height:32px;font-size:0.7rem;">??</div>
         <button class="logout-btn" id="logout-btn" title="Sign Out" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -291,6 +291,62 @@
       document.getElementById('logout-btn').addEventListener('click', async () => {
         await db.auth.signOut();
         window.location.href = '../index.html';
+      });
+
+      // Click-to-edit display name
+      document.getElementById('user-name').addEventListener('click', () => {
+        const nameEl = document.getElementById('user-name');
+        const currentName = nameEl.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentName;
+        input.style.cssText = 'font-size:0.85rem;font-weight:500;color:var(--text-primary);background:var(--bg-card);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;width:140px;outline:none;font-family:var(--font-body);';
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        async function saveName() {
+          const newName = input.value.trim();
+          if (!newName || newName === currentName) {
+            // Revert
+            const span = document.createElement('span');
+            span.className = 'leagues-user-name';
+            span.id = 'user-name';
+            span.title = 'Click to edit your name';
+            span.style.cssText = 'cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;';
+            span.textContent = currentName;
+            input.replaceWith(span);
+            // Re-attach click listener
+            span.addEventListener('click', () => document.getElementById('user-name').click());
+            return;
+          }
+
+          // Save to Supabase auth
+          const { error } = await db.auth.updateUser({ data: { display_name: newName } });
+          const span = document.createElement('span');
+          span.className = 'leagues-user-name';
+          span.id = 'user-name';
+          span.title = 'Click to edit your name';
+          span.style.cssText = 'cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;';
+
+          if (error) {
+            showToast('Failed to update name: ' + error.message, 'error');
+            span.textContent = currentName;
+          } else {
+            span.textContent = newName;
+            document.getElementById('user-avatar').textContent = getInitials(newName);
+            showToast('Name updated!', 'success', 2000);
+          }
+          input.replaceWith(span);
+          // Re-attach click listener by reloading the handler
+          span.addEventListener('click', () => document.getElementById('user-name').click());
+        }
+
+        input.addEventListener('blur', saveName);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+          if (e.key === 'Escape') { input.value = currentName; input.blur(); }
+        });
       });
 
       // Check for pending invite
