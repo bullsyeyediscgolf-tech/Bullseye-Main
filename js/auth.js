@@ -115,16 +115,28 @@ function setupSignupForm() {
       }
     });
 
-    setLoading(btn, false);
-
     if (error) {
+      setLoading(btn, false);
       showAuthError(errorEl, error.message);
       return;
     }
 
-    // Cache display name locally so it survives the email confirmation flow
-    localStorage.setItem('pending_display_name', name);
+    // With email confirmation disabled, signUp creates a session immediately.
+    // Redirect the user straight in.
+    if (data.session) {
+      const pendingCode = sessionStorage.getItem('pending_invite');
+      if (pendingCode) {
+        sessionStorage.removeItem('pending_invite');
+        window.location.href = `pages/join.html?code=${pendingCode}`;
+      } else {
+        window.location.href = 'pages/leagues.html';
+      }
+      return;
+    }
 
+    // Fallback: if email confirmation is still on for some reason
+    setLoading(btn, false);
+    localStorage.setItem('pending_display_name', name);
     successEl.textContent = '✓ Account created! Check your email to confirm, then sign in.';
     successEl.classList.remove('hidden');
     btn.disabled = true;
