@@ -2,8 +2,8 @@ name: Update Tournament Scores
 
 on:
   schedule:
-    # Run daily at 6 AM UTC (covers Wed-Sun tournament days, including Worlds)
-    - cron: '0 6 * * *'
+    # Run every 4 hours
+    - cron: '0 */4 * * *'
   workflow_dispatch: # Allow manual trigger from GitHub UI
 
 jobs:

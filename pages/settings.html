@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>League Settings — Bullseye Fantasy DG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .settings-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .settings-card-title {
+      font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 1px;
+      margin-bottom: 16px; color: var(--text-primary);
+    }
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+    .setting-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .setting-input {
+      width: 80px; text-align: center; padding: 6px 8px; font-family: var(--font-mono);
+      font-size: 0.85rem; font-weight: 600;
+    }
+    .setting-input-wide { width: 140px; }
+    .podium-inputs { display: flex; gap: 6px; align-items: center; }
+    .podium-inputs input { width: 52px; }
+    .podium-inputs span { font-size: 0.7rem; color: var(--text-muted); }
+    .save-bar {
+      position: sticky; bottom: 0; background: var(--bg-secondary); border-top: 1px solid var(--border);
+      padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+      margin: 24px -24px -24px; z-index: 10;
+    }
+    .save-bar-msg { font-size: 0.82rem; color: var(--text-muted); }
+    .not-commissioner {
+      text-align: center; padding: 60px 20px; color: var(--text-muted);
+    }
+    .not-commissioner h2 { font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 8px; color: var(--text-secondary); }
+    @media (max-width: 768px) {
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg width="28" height="28" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="27" stroke="#F5A623" stroke-width="2"/>
+        <circle cx="28" cy="28" r="16" stroke="#F5A623" stroke-width="1.5"/>
+        <circle cx="28" cy="28" r="5" fill="#F5A623"/>
+      </svg>
+      <span class="sidebar-logo">BULLSEYE</span>
+      <span class="sidebar-season">2026</span>
+    </div>
+    <div class="sidebar-league">
+      <div class="league-selector">
+        <span class="league-selector-label">League</span>
+        <span class="league-selector-name" id="league-name-display">Loading...</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+      </a>
+      <a href="schedule.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Schedule
+      </a>
+      <div class="nav-section-label">My Team</div>
+      <a href="roster.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster
+      </a>
+      <a href="lineup.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Set Lineup
+      </a>
+      <div class="nav-section-label">League</div>
+      <a href="standings.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>Standings
+      </a>
+      <a href="draft.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Draft
+      </a>
+      <a href="waivers.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Waivers
+      </a>
+      <a href="trades.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Trades
+      </a>
+      <a href="players.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Player Pool
+      </a>
+      <a href="settings.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">??</div>
+        <div><div class="user-name" id="user-display-name">Loading...</div></div>
+        <button class="logout-btn" id="logout-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <h1 class="topbar-title">League Settings</h1>
+      <div class="topbar-actions">
+        <span class="badge badge-es" id="role-badge" style="display:none;">Commissioner</span>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="loading-state">
+        <div class="skeleton" style="height:400px;border-radius:10px;"></div>
+      </div>
+
+      <div id="not-commissioner" class="hidden not-commissioner">
+        <h2>Commissioner Only</h2>
+        <p>Only the league commissioner can edit these settings.</p>
+        <a href="dashboard.html" class="btn-secondary btn-sm" style="margin-top:12px;">Back to Dashboard</a>
+      </div>
+
+      <div id="settings-content" class="hidden">
+        <div class="settings-grid">
+          <!-- ROSTER & LEAGUE -->
+          <div class="settings-card">
+            <div class="settings-card-title">Roster & League</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Roster Size</div>
+                <div class="setting-desc">Total players per team</div>
+              </div>
+              <input type="number" class="setting-input" id="s-team-size" min="3" max="15">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Starters</div>
+                <div class="setting-desc">Active lineup spots per week</div>
+              </div>
+              <input type="number" class="setting-input" id="s-starters" min="1" max="10">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Starting FAAB</div>
+                <div class="setting-desc">Budget for waiver claims</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="color:var(--text-muted);font-size:0.85rem;">$</span>
+                <input type="number" class="setting-input" id="s-faab" min="0" max="1000">
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Waiver Blackout</div>
+                <div class="setting-desc">Hours after tournament before waivers process</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" class="setting-input" id="s-waiver-hours" min="0" max="168">
+                <span style="color:var(--text-muted);font-size:0.75rem;">hrs</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCORING -->
+          <div class="settings-card">
+            <div class="settings-card-title">Scoring</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Lead Card Multiplier</div>
+                <div class="setting-desc">Score multiplier for lead card rounds (R2+)</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" class="setting-input" id="s-lead-mult" min="1" max="5" step="0.1">
+                <span style="color:var(--text-muted);font-size:0.75rem;">x</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Podium Bonus</div>
+                <div class="setting-desc">Fantasy pts for 1st / 2nd / 3rd place</div>
+              </div>
+              <div class="podium-inputs">
+                <input type="number" class="setting-input" id="s-podium-1" min="0" max="50">
+                <span>/</span>
+                <input type="number" class="setting-input" id="s-podium-2" min="0" max="50">
+                <span>/</span>
+                <input type="number" class="setting-input" id="s-podium-3" min="0" max="50">
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Eagle Bonus</div>
+                <div class="setting-desc">Points per eagle scored</div>
+              </div>
+              <input type="number" class="setting-input" id="s-eagle" min="0" max="10" step="0.5">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Parked Bonus</div>
+                <div class="setting-desc">Points per parked hole</div>
+              </div>
+              <input type="number" class="setting-input" id="s-parked" min="0" max="10" step="0.5">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Position Best Bonus</div>
+                <div class="setting-desc">Best at position within league</div>
+              </div>
+              <input type="number" class="setting-input" id="s-pos-best" min="0" max="20">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Position 2nd Bonus</div>
+                <div class="setting-desc">Second best at position</div>
+              </div>
+              <input type="number" class="setting-input" id="s-pos-second" min="0" max="20">
+            </div>
+          </div>
+
+          <!-- INVITE CODE -->
+          <div class="settings-card">
+            <div class="settings-card-title">League Info</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Invite Code</div>
+                <div class="setting-desc">Share this with people to join your league</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span id="invite-code" style="font-family:var(--font-mono);font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:2px;">—</span>
+                <button class="btn-ghost btn-sm" id="copy-code-btn" title="Copy">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">League Name</div>
+              </div>
+              <input type="text" class="setting-input setting-input-wide" id="s-league-name" style="text-align:left;">
+            </div>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <span class="save-bar-msg" id="save-msg">All changes are saved automatically.</span>
+          <button class="btn-primary" id="save-btn">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script>
+let league = null;
+let currentUser = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  currentUser = user;
+
+  const name = user.user_metadata?.display_name || user.email.split('@')[0];
+  document.getElementById('user-avatar').textContent = getInitials(name);
+  document.getElementById('user-display-name').textContent = name;
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await db.auth.signOut(); window.location.href = '../index.html';
+  });
+
+  // Load team & league
+  const { data: teams } = await db.from('teams').select('*, leagues(*)').eq('manager_id', user.id);
+  if (!teams?.length) {
+    window.location.href = 'leagues.html';
+    return;
+  }
+  const savedId = getSelectedTeamId();
+  const team = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
+  league = team.leagues;
+
+  document.getElementById('league-name-display').textContent = league.name || '—';
+  document.getElementById('loading-state').classList.add('hidden');
+
+  // Check if commissioner
+  if (league.commissioner_id !== user.id) {
+    document.getElementById('not-commissioner').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('role-badge').style.display = '';
+  document.getElementById('settings-content').classList.remove('hidden');
+  populateFields();
+
+  // Save button
+  document.getElementById('save-btn').addEventListener('click', saveSettings);
+
+  // Copy invite code
+  document.getElementById('copy-code-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(league.invite_code || '');
+    showToast('Invite code copied!', 'success', 2000);
+  });
+});
+
+function populateFields() {
+  const s = league.settings || {};
+  const scoring = s.scoring || {};
+
+  document.getElementById('s-team-size').value = s.team_size ?? 7;
+  document.getElementById('s-starters').value = s.starters ?? 5;
+  document.getElementById('s-faab').value = s.starting_faab ?? 100;
+  document.getElementById('s-waiver-hours').value = s.waiver_blackout_hours ?? 24;
+
+  document.getElementById('s-lead-mult').value = scoring.lead_card_multiplier ?? 1.5;
+  const podium = scoring.podium_bonus || [15, 8, 3];
+  document.getElementById('s-podium-1').value = podium[0] ?? 15;
+  document.getElementById('s-podium-2').value = podium[1] ?? 8;
+  document.getElementById('s-podium-3').value = podium[2] ?? 3;
+  document.getElementById('s-eagle').value = scoring.eagle_bonus ?? 1;
+  document.getElementById('s-parked').value = scoring.parked_bonus ?? 1;
+  document.getElementById('s-pos-best').value = scoring.position_best_bonus ?? 7;
+  document.getElementById('s-pos-second').value = scoring.position_second_bonus ?? 3;
+
+  document.getElementById('invite-code').textContent = league.invite_code || '—';
+  document.getElementById('s-league-name').value = league.name || '';
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('save-btn');
+  const msgEl = document.getElementById('save-msg');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // Build settings object (preserve any fields we don't edit)
+  const existing = league.settings || {};
+  const existingScoring = existing.scoring || {};
+
+  const newSettings = {
+    ...existing,
+    team_size: parseInt(document.getElementById('s-team-size').value) || 7,
+    starters: parseInt(document.getElementById('s-starters').value) || 5,
+    starting_faab: parseInt(document.getElementById('s-faab').value) || 100,
+    waiver_blackout_hours: parseInt(document.getElementById('s-waiver-hours').value) || 24,
+    scoring: {
+      ...existingScoring,
+      lead_card_multiplier: parseFloat(document.getElementById('s-lead-mult').value) || 1.5,
+      podium_bonus: [
+        parseFloat(document.getElementById('s-podium-1').value) || 0,
+        parseFloat(document.getElementById('s-podium-2').value) || 0,
+        parseFloat(document.getElementById('s-podium-3').value) || 0,
+      ],
+      eagle_bonus: parseFloat(document.getElementById('s-eagle').value) || 0,
+      parked_bonus: parseFloat(document.getElementById('s-parked').value) || 0,
+      position_best_bonus: parseFloat(document.getElementById('s-pos-best').value) || 0,
+      position_second_bonus: parseFloat(document.getElementById('s-pos-second').value) || 0,
+    },
+  };
+
+  const newName = document.getElementById('s-league-name').value.trim();
+
+  const updatePayload = { settings: newSettings };
+  if (newName && newName !== league.name) {
+    updatePayload.name = newName;
+  }
+
+  const { error } = await db.from('leagues').update(updatePayload).eq('id', league.id);
+
+  btn.disabled = false;
+  btn.textContent = 'Save Settings';
+
+  if (error) {
+    showToast('Failed to save: ' + error.message, 'error');
+    msgEl.textContent = 'Error saving settings.';
+    msgEl.style.color = 'var(--red)';
+  } else {
+    // Update local state
+    league.settings = newSettings;
+    if (newName) {
+      league.name = newName;
+      document.getElementById('league-name-display').textContent = newName;
+    }
+    showToast('Settings saved!', 'success', 2500);
+    msgEl.textContent = 'Saved just now.';
+    msgEl.style.color = 'var(--green)';
+    setTimeout(() => {
+      msgEl.textContent = 'All changes are saved automatically.';
+      msgEl.style.color = '';
+    }, 3000);
+  }
+}
+</script>
+</body>
+</html>
