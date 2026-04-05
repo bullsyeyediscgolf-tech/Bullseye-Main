@@ -39,6 +39,40 @@
       text-align: center; padding: 60px 20px; color: var(--text-muted);
     }
     .not-commissioner h2 { font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 8px; color: var(--text-secondary); }
+    .member-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .member-row:last-child { border-bottom: none; }
+    .member-info { display: flex; align-items: center; gap: 10px; }
+    .member-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: var(--accent-dim);
+      color: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+    }
+    .member-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+    .member-team { font-size: 0.72rem; color: var(--text-muted); }
+    .member-badge {
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--accent); background: var(--accent-dim); padding: 2px 6px; border-radius: 4px;
+      margin-left: 8px;
+    }
+    .btn-remove {
+      background: none; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.72rem; font-weight: 600; transition: all 0.15s;
+    }
+    .btn-remove:hover { border-color: var(--red); color: var(--red); }
+    .btn-remove-confirm {
+      background: var(--red); border: 1px solid var(--red); color: white;
+      padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.72rem; font-weight: 600;
+    }
+    .btn-remove-cancel {
+      background: none; border: 1px solid var(--border); color: var(--text-secondary);
+      padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.72rem; margin-left: 6px;
+    }
     @media (max-width: 768px) {
       .settings-grid { grid-template-columns: 1fr; }
     }
@@ -248,6 +282,14 @@
           </div>
         </div>
 
+        <!-- MEMBERS MANAGEMENT (full width) -->
+        <div class="settings-card" style="margin-top:20px;">
+          <div class="settings-card-title">Members</div>
+          <div id="members-list">
+            <div class="skeleton" style="height:40px;border-radius:6px;margin-bottom:8px;"></div>
+          </div>
+        </div>
+
         <div class="save-bar">
           <span class="save-bar-msg" id="save-msg">All changes are saved automatically.</span>
           <button class="btn-primary" id="save-btn">Save Settings</button>
@@ -297,6 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('role-badge').style.display = '';
   document.getElementById('settings-content').classList.remove('hidden');
   populateFields();
+  loadMembers();
 
   // Save button
   document.getElementById('save-btn').addEventListener('click', saveSettings);
@@ -393,6 +436,95 @@ async function saveSettings() {
       msgEl.style.color = '';
     }, 3000);
   }
+}
+
+// ============================================
+// MEMBERS MANAGEMENT
+// ============================================
+let leagueMembers = [];
+
+async function loadMembers() {
+  const { data: teams } = await db
+    .from('teams')
+    .select('id, name, manager_id, created_at')
+    .eq('league_id', league.id)
+    .order('created_at', { ascending: true });
+
+  leagueMembers = teams || [];
+  renderMembers();
+}
+
+function renderMembers() {
+  const container = document.getElementById('members-list');
+  if (!leagueMembers.length) {
+    container.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted);">No members in this league.</p>';
+    return;
+  }
+
+  container.innerHTML = leagueMembers.map(team => {
+    const isCommish = team.manager_id === league.commissioner_id;
+    const initials = team.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    return `
+      <div class="member-row" id="member-${team.id}">
+        <div class="member-info">
+          <div class="member-avatar">${initials}</div>
+          <div>
+            <div class="member-name">
+              ${team.name}
+              ${isCommish ? '<span class="member-badge">Commissioner</span>' : ''}
+            </div>
+            <div class="member-team">Joined ${new Date(team.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+          </div>
+        </div>
+        <div id="member-actions-${team.id}">
+          ${isCommish
+            ? '<span style="font-size:0.72rem;color:var(--text-muted);">You</span>'
+            : `<button class="btn-remove" onclick="confirmRemove('${team.id}', '${team.name.replace(/'/g, "\\'")}')">Remove</button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function confirmRemove(teamId, teamName) {
+  // Reset all other confirms
+  leagueMembers.forEach(t => {
+    if (t.id !== teamId) {
+      const el = document.getElementById(`member-actions-${t.id}`);
+      if (el && t.manager_id !== league.commissioner_id) {
+        el.innerHTML = `<button class="btn-remove" onclick="confirmRemove('${t.id}', '${t.name.replace(/'/g, "\\'")}')">Remove</button>`;
+      }
+    }
+  });
+
+  const actionsEl = document.getElementById(`member-actions-${teamId}`);
+  actionsEl.innerHTML = `
+    <span style="font-size:0.72rem;color:var(--red);margin-right:8px;">Remove ${teamName}?</span>
+    <button class="btn-remove-confirm" onclick="removeMember('${teamId}')">Confirm</button>
+    <button class="btn-remove-cancel" onclick="renderMembers()">Cancel</button>
+  `;
+}
+
+async function removeMember(teamId) {
+  const actionsEl = document.getElementById(`member-actions-${teamId}`);
+  actionsEl.innerHTML = '<span style="font-size:0.72rem;color:var(--text-muted);">Removing...</span>';
+
+  // Delete associated data first, then the team (cascade should handle most, but be explicit)
+  await db.from('rosters').delete().eq('team_id', teamId);
+  await db.from('lineups').delete().eq('team_id', teamId);
+
+  const { error } = await db.from('teams').delete().eq('id', teamId);
+
+  if (error) {
+    showToast('Failed to remove member: ' + error.message, 'error');
+    renderMembers();
+    return;
+  }
+
+  leagueMembers = leagueMembers.filter(t => t.id !== teamId);
+  showToast('Team removed from league.', 'success');
+  renderMembers();
 }
 </script>
 </body>
