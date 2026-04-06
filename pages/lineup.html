@@ -547,12 +547,47 @@ function removeFromSlot(e, posKey) {
 }
 
 function renderPickerEmpty() {
-  document.getElementById('picker-players').innerHTML = `
-    <div class="no-slot-selected">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-      <div>Click a lineup slot on the left to pick a player</div>
-    </div>`;
-  document.getElementById('picker-hint').textContent = '← Select a slot first';
+  const { roster, lineup } = lineupState;
+
+  // Show full roster overview when no slot is selected
+  if (roster?.length) {
+    const usedIds = new Set(Object.values(lineup).filter(l => l?.player_id).map(l => l.player_id));
+    const players = roster.map(r => r.players).filter(Boolean)
+      .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
+
+    const html = players.map(p => {
+      const inLineup = usedIds.has(p.id);
+      return `
+        <div class="picker-player-row" style="opacity:${inLineup ? '0.5' : '1'};">
+          <div class="player-avatar" style="width:34px;height:34px;font-size:0.7rem;flex-shrink:0;">
+            ${getInitials(p.name)}
+          </div>
+          <div class="player-info">
+            <div class="player-name">${p.name}</div>
+            <div class="player-meta">PDGA #${p.pdga_number || '—'}</div>
+          </div>
+          <div class="picker-player-stat">
+            <span class="highlight">${p.pdga_rating || '—'}</span>
+            <span>rating</span>
+          </div>
+          ${inLineup
+            ? `<span style="font-size:0.7rem;color:var(--accent);padding:0 8px;">In lineup</span>`
+            : `<span style="font-size:0.7rem;color:var(--text-muted);padding:0 8px;">Available</span>`
+          }
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('picker-players').innerHTML = html;
+    document.getElementById('picker-hint').textContent = '← Select a slot to assign a player';
+  } else {
+    document.getElementById('picker-players').innerHTML = `
+      <div class="no-slot-selected">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <div>No players on your roster yet</div>
+      </div>`;
+    document.getElementById('picker-hint').textContent = 'Add players from the Player Pool first';
+  }
 }
 
 function renderPickerPlayers() {
