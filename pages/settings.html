@@ -73,6 +73,67 @@
       padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
       font-size: 0.72rem; margin-left: 6px;
     }
+    /* Position Builder */
+    .pos-slot {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .pos-slot:last-child { border-bottom: none; }
+    .pos-slot-num {
+      width: 22px; height: 22px; border-radius: 50%; background: var(--accent-dim);
+      color: var(--accent); font-size: 0.65rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .pos-slot select {
+      flex: 1; padding: 6px 10px; font-size: 0.82rem; font-weight: 500;
+      background: var(--bg-primary); color: var(--text-primary);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-family: var(--font-body); cursor: pointer;
+    }
+    .pos-slot select:focus { border-color: var(--accent); outline: none; }
+    .pos-remove-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 4px; border-radius: 4px; transition: color 0.15s;
+    }
+    .pos-remove-btn:hover { color: var(--red); }
+    .pos-add-btn {
+      display: flex; align-items: center; gap: 6px; margin-top: 10px;
+      background: none; border: 1px dashed var(--border); color: var(--text-muted);
+      padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.78rem; font-weight: 500; width: 100%; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .pos-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Team Preview */
+    .team-preview { display: flex; flex-direction: column; gap: 6px; }
+    .preview-slot {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      background: var(--bg-primary); border: 1px solid var(--border-subtle);
+    }
+    .preview-slot.starter { border-left: 3px solid var(--accent); }
+    .preview-slot.bench { border-left: 3px solid var(--text-muted); opacity: 0.6; }
+    .preview-pos-badge {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; padding: 2px 8px; border-radius: 4px;
+      min-width: 70px; text-align: center;
+    }
+    .preview-pos-badge.putter { background: #1a3a2a; color: #4ade80; }
+    .preview-pos-badge.driver { background: #1a2a3a; color: #60a5fa; }
+    .preview-pos-badge.approacher { background: #3a2a1a; color: #f59e0b; }
+    .preview-pos-badge.flex { background: #2a1a3a; color: #c084fc; }
+    .preview-pos-badge.bench-badge { background: var(--bg-secondary); color: var(--text-muted); }
+    .preview-player-placeholder {
+      font-size: 0.78rem; color: var(--text-muted); font-style: italic;
+    }
+    .preview-summary {
+      font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;
+      padding: 6px 0; border-top: 1px solid var(--border-subtle);
+      display: flex; gap: 12px;
+    }
+    .preview-summary strong { color: var(--text-secondary); }
+
     @media (max-width: 768px) {
       .settings-grid { grid-template-columns: 1fr; }
     }
@@ -163,24 +224,28 @@
 
       <div id="settings-content" class="hidden">
         <div class="settings-grid">
-          <!-- ROSTER & LEAGUE -->
+          <!-- ROSTER & POSITIONS -->
           <div class="settings-card">
-            <div class="settings-card-title">Roster & League</div>
+            <div class="settings-card-title">Roster & Positions</div>
             <div class="setting-row">
               <div>
                 <div class="setting-label">Roster Size</div>
-                <div class="setting-desc">Total players per team</div>
+                <div class="setting-desc">Total players per team (starters + bench)</div>
               </div>
-              <input type="number" class="setting-input" id="s-team-size" min="3" max="15">
+              <input type="number" class="setting-input" id="s-team-size" min="2" max="15" onchange="onRosterSizeChange()">
             </div>
-            <div class="setting-row">
-              <div>
-                <div class="setting-label">Starters</div>
-                <div class="setting-desc">Active lineup spots per week</div>
-              </div>
-              <input type="number" class="setting-input" id="s-starters" min="1" max="10">
+
+            <div style="padding:12px 0 4px;">
+              <div class="setting-label">Lineup Positions</div>
+              <div class="setting-desc">Each slot is a starter. Remaining roster spots become bench.</div>
             </div>
-            <div class="setting-row">
+            <div id="pos-slots-container"></div>
+            <button class="pos-add-btn" id="pos-add-btn" onclick="addPositionSlot('flex')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Starter Slot
+            </button>
+
+            <div class="setting-row" style="margin-top:8px;">
               <div>
                 <div class="setting-label">Starting FAAB</div>
                 <div class="setting-desc">Budget for waiver claims</div>
@@ -200,6 +265,13 @@
                 <span style="color:var(--text-muted);font-size:0.75rem;">hrs</span>
               </div>
             </div>
+          </div>
+
+          <!-- TEAM PREVIEW -->
+          <div class="settings-card" style="display:flex;flex-direction:column;">
+            <div class="settings-card-title">Team Preview</div>
+            <div class="team-preview" id="team-preview"></div>
+            <div class="preview-summary" id="preview-summary"></div>
           </div>
 
           <!-- SCORING -->
@@ -351,14 +423,137 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
+// ============================================
+// POSITION BUILDER
+// ============================================
+const POSITION_OPTIONS = [
+  { value: 'putter', label: 'Putter' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'approacher', label: 'Approacher' },
+  { value: 'flex', label: 'Flex (Any)' },
+];
+
+let currentPositions = []; // array of position strings, e.g. ['putter','driver','approacher']
+
+function renderPositionSlots() {
+  const container = document.getElementById('pos-slots-container');
+  const teamSize = parseInt(document.getElementById('s-team-size').value) || 7;
+
+  container.innerHTML = currentPositions.map((pos, i) => `
+    <div class="pos-slot">
+      <div class="pos-slot-num">${i + 1}</div>
+      <select onchange="updatePosition(${i}, this.value)">
+        ${POSITION_OPTIONS.map(opt =>
+          `<option value="${opt.value}" ${pos === opt.value ? 'selected' : ''}>${opt.label}</option>`
+        ).join('')}
+      </select>
+      ${currentPositions.length > 1 ? `
+        <button class="pos-remove-btn" onclick="removePositionSlot(${i})" title="Remove slot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      ` : ''}
+    </div>
+  `).join('');
+
+  // Hide add button if starters >= team size
+  const addBtn = document.getElementById('pos-add-btn');
+  if (currentPositions.length >= teamSize) {
+    addBtn.style.display = 'none';
+  } else {
+    addBtn.style.display = '';
+  }
+
+  renderTeamPreview();
+}
+
+function addPositionSlot(pos) {
+  const teamSize = parseInt(document.getElementById('s-team-size').value) || 7;
+  if (currentPositions.length >= teamSize) {
+    showToast('All roster spots are starters — increase roster size to add more.', 'info');
+    return;
+  }
+  currentPositions.push(pos || 'flex');
+  renderPositionSlots();
+}
+
+function removePositionSlot(index) {
+  if (currentPositions.length <= 1) return;
+  currentPositions.splice(index, 1);
+  renderPositionSlots();
+}
+
+function updatePosition(index, value) {
+  currentPositions[index] = value;
+  renderTeamPreview();
+}
+
+function onRosterSizeChange() {
+  const teamSize = parseInt(document.getElementById('s-team-size').value) || 7;
+  // If starters exceed new team size, trim positions
+  if (currentPositions.length > teamSize) {
+    currentPositions = currentPositions.slice(0, teamSize);
+  }
+  renderPositionSlots();
+}
+
+function renderTeamPreview() {
+  const container = document.getElementById('team-preview');
+  const summaryEl = document.getElementById('preview-summary');
+  const teamSize = parseInt(document.getElementById('s-team-size').value) || 7;
+  const benchCount = Math.max(0, teamSize - currentPositions.length);
+
+  let html = '';
+
+  // Starters
+  currentPositions.forEach((pos, i) => {
+    const opt = POSITION_OPTIONS.find(o => o.value === pos) || { value: pos, label: pos };
+    html += `
+      <div class="preview-slot starter">
+        <span class="preview-pos-badge ${opt.value}">${opt.label.replace(' (Any)', '')}</span>
+        <span class="preview-player-placeholder">Starter ${i + 1}</span>
+      </div>
+    `;
+  });
+
+  // Bench
+  for (let i = 0; i < benchCount; i++) {
+    html += `
+      <div class="preview-slot bench">
+        <span class="preview-pos-badge bench-badge">Bench</span>
+        <span class="preview-player-placeholder">Bench ${i + 1}</span>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+  summaryEl.innerHTML = `
+    <span><strong>${currentPositions.length}</strong> starter${currentPositions.length !== 1 ? 's' : ''}</span>
+    <span><strong>${benchCount}</strong> bench</span>
+    <span><strong>${teamSize}</strong> total roster</span>
+  `;
+}
+
 function populateFields() {
   const s = league.settings || {};
   const scoring = s.scoring || {};
 
   document.getElementById('s-team-size').value = s.team_size ?? 7;
-  document.getElementById('s-starters').value = s.starters ?? 5;
   document.getElementById('s-faab').value = s.starting_faab ?? 100;
   document.getElementById('s-waiver-hours').value = s.waiver_blackout_hours ?? 24;
+
+  // Load positions from scoring.positions, fall back to generating from starters count
+  if (scoring.positions && scoring.positions.length) {
+    currentPositions = [...scoring.positions];
+  } else {
+    // Legacy fallback: generate from starters number
+    const starters = s.starters ?? 5;
+    const defaults = ['putter', 'driver', 'approacher'];
+    currentPositions = [];
+    for (let i = 0; i < starters; i++) {
+      currentPositions.push(defaults[i] || 'flex');
+    }
+  }
+  renderPositionSlots();
 
   document.getElementById('s-lead-mult').value = scoring.lead_card_multiplier ?? 1.5;
   const podium = scoring.podium_bonus || [15, 8, 3];
@@ -387,11 +582,12 @@ async function saveSettings() {
   const newSettings = {
     ...existing,
     team_size: parseInt(document.getElementById('s-team-size').value) || 7,
-    starters: parseInt(document.getElementById('s-starters').value) || 5,
+    starters: currentPositions.length, // derived from positions array
     starting_faab: parseInt(document.getElementById('s-faab').value) || 100,
     waiver_blackout_hours: parseInt(document.getElementById('s-waiver-hours').value) || 24,
     scoring: {
       ...existingScoring,
+      positions: [...currentPositions], // save the full positions array
       lead_card_multiplier: parseFloat(document.getElementById('s-lead-mult').value) || 1.5,
       podium_bonus: [
         parseFloat(document.getElementById('s-podium-1').value) || 0,
