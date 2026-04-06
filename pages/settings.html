@@ -73,6 +73,17 @@
       padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
       font-size: 0.72rem; margin-left: 6px;
     }
+    .btn-danger {
+      background: none; border: 1px solid rgba(239,68,68,0.4); color: #ef4444;
+      padding: 8px 18px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; transition: all 0.15s;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+    .btn-danger-confirm {
+      background: #ef4444; border: 1px solid #ef4444; color: white;
+      padding: 8px 18px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.82rem; font-weight: 600;
+    }
     /* Position Builder */
     .pos-slot {
       display: flex; align-items: center; gap: 8px;
@@ -359,6 +370,19 @@
           <div class="settings-card-title">Members</div>
           <div id="members-list">
             <div class="skeleton" style="height:40px;border-radius:6px;margin-bottom:8px;"></div>
+          </div>
+        </div>
+
+        <!-- DANGER ZONE -->
+        <div class="settings-card" style="margin-top:32px;border:1px solid rgba(239,68,68,0.3);">
+          <div class="settings-card-title" style="color:#ef4444;">Danger Zone</div>
+          <div style="margin-bottom:12px;">
+            <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 12px;">
+              Reset this league to its initial state. This will delete all rosters, draft picks, lineups, and waiver claims for every team. Teams stay in the league but all players become free agents and the draft resets to pending.
+            </p>
+            <div id="reset-league-area">
+              <button class="btn-danger" id="reset-league-btn" onclick="confirmResetLeague()">Reset League</button>
+            </div>
           </div>
         </div>
 
@@ -721,6 +745,67 @@ async function removeMember(teamId) {
   leagueMembers = leagueMembers.filter(t => t.id !== teamId);
   showToast('Team removed from league.', 'success');
   renderMembers();
+}
+
+// ── RESET LEAGUE ──
+function confirmResetLeague() {
+  const area = document.getElementById('reset-league-area');
+  area.innerHTML = `
+    <p style="font-size:0.82rem;color:#ef4444;font-weight:600;margin:0 0 8px;">
+      Are you sure? This will wipe ALL rosters, draft picks, lineups, and waiver claims for every team. This cannot be undone.
+    </p>
+    <button class="btn-danger-confirm" onclick="executeResetLeague()">Yes, Reset Everything</button>
+    <button class="btn-remove-cancel" style="margin-left:8px;" onclick="cancelResetLeague()">Cancel</button>
+  `;
+}
+
+function cancelResetLeague() {
+  const area = document.getElementById('reset-league-area');
+  area.innerHTML = `<button class="btn-danger" id="reset-league-btn" onclick="confirmResetLeague()">Reset League</button>`;
+}
+
+async function executeResetLeague() {
+  const area = document.getElementById('reset-league-area');
+  area.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted);">Resetting league...</p>';
+
+  const leagueId = league.id;
+
+  try {
+    // 1. Delete all draft picks for this league
+    const { error: picksErr } = await db.from('draft_picks').delete().eq('league_id', leagueId);
+    if (picksErr) throw new Error('draft picks: ' + picksErr.message);
+
+    // 2. Delete all rosters for this league
+    const { error: rostersErr } = await db.from('rosters').delete().eq('league_id', leagueId);
+    if (rostersErr) throw new Error('rosters: ' + rostersErr.message);
+
+    // 3. Delete all lineups for teams in this league
+    const { data: teamIds } = await db.from('teams').select('id').eq('league_id', leagueId);
+    if (teamIds?.length) {
+      for (const t of teamIds) {
+        await db.from('lineups').delete().eq('team_id', t.id);
+      }
+    }
+
+    // 4. Delete all waiver claims for this league
+    await db.from('waiver_claims').delete().eq('league_id', leagueId);
+
+    // 5. Reset draft record back to pending
+    const { error: draftErr } = await db.from('drafts').update({
+      status: 'pending',
+      current_pick: 1,
+      started_at: null,
+      completed_at: null
+    }).eq('league_id', leagueId);
+    if (draftErr) throw new Error('draft reset: ' + draftErr.message);
+
+    showToast('League has been reset! All players are free agents.', 'success', 5000);
+    cancelResetLeague();
+    loadMembers();
+  } catch (err) {
+    showToast('Reset failed: ' + err.message, 'error');
+    cancelResetLeague();
+  }
 }
 </script>
 </body>
