@@ -102,6 +102,7 @@ async function loadUserLeagues(user) {
     loadSchedulePreview(),
     loadActivityFeed(league.id),
     loadTeamStats(team),
+    loadMyRoster(team),
   ]);
 
   // Subscribe to realtime updates
@@ -129,6 +130,48 @@ async function loadTeamStats(team) {
 
   const totalPts = fantasyScores?.reduce((sum, s) => sum + (s.league_points || 0), 0) || 0;
   document.getElementById('stat-season-pts').textContent = totalPts > 0 ? `+${totalPts}` : totalPts;
+}
+
+async function loadMyRoster(team) {
+  const container = document.getElementById('my-roster-list');
+
+  const { data: roster } = await db
+    .from('rosters')
+    .select('*, players(name, pdga_rating, position)')
+    .eq('team_id', team.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  if (!roster?.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:1.5rem;margin-bottom:8px;">👥</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);">No players on your roster yet.</div>
+        <a href="players.html" style="font-size:0.8rem;color:var(--accent);margin-top:6px;display:inline-block;">Browse Player Pool →</a>
+      </div>
+    `;
+    return;
+  }
+
+  const html = roster.map(r => {
+    const p = r.players;
+    const posLabel = p?.position || '—';
+    const posClass = (p?.position || '').toLowerCase();
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
+        <div class="user-avatar" style="width:32px;height:32px;font-size:0.65rem;flex-shrink:0;background:var(--bg-card-hover);color:var(--text-primary);display:flex;align-items:center;justify-content:center;border-radius:50%;">
+          ${getInitials(p?.name || '??')}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p?.name || 'Unknown'}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);">${p?.pdga_rating || '—'} rating</div>
+        </div>
+        <span class="pos-badge pos-${posClass}" style="font-size:0.6rem;">${posLabel === 'approacher' ? 'APP' : posLabel.toUpperCase().slice(0, 3)}</span>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
 }
 
 async function loadStandings(leagueId, myTeamId) {
@@ -211,7 +254,12 @@ async function loadNextTournament(teamId, leagueId) {
 }
 
 async function loadLineupPreview(teamId, tournamentId) {
-  const positions = ['putter', 'driver', 'approacher', 'flex', 'flex'];
+  // Read positions from league settings (fall back to defaults)
+  const league = AppState.currentLeague;
+  const scoring = league?.settings?.scoring || {};
+  const positions = scoring.positions?.length
+    ? scoring.positions
+    : ['putter', 'driver', 'approacher', 'flex', 'flex'];
 
   const { data: lineup } = await db
     .from('lineups')
@@ -228,11 +276,17 @@ async function loadLineupPreview(teamId, tournamentId) {
     lineupMap[l.position].push(l.players?.name || 'Unknown');
   });
 
-  const slotsHtml = positions.map((pos, i) => {
-    const isFlexSecond = pos === 'flex' && i === 4;
-    const posKey = pos === 'flex' ? (isFlexSecond ? 'flex_2' : 'flex') : pos;
+  // Track flex index for multiple flex slots
+  let flexIdx = 0;
+  const slotsHtml = positions.map((pos) => {
     const players = lineupMap[pos] || [];
-    const player = pos === 'flex' ? players[isFlexSecond ? 1 : 0] : players[0];
+    let player;
+    if (pos === 'flex') {
+      player = players[flexIdx] || null;
+      flexIdx++;
+    } else {
+      player = players[0] || null;
+    }
 
     return `
       <div class="lineup-slot ${player ? 'filled' : ''}">
