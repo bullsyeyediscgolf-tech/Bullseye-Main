@@ -499,13 +499,6 @@ function setupCreateLeagueModal() {
       draft_position: 1
     });
 
-    // Create draft record
-    await db.from('drafts').insert({
-      league_id: league.id,
-      status: 'pending',
-      type: 'snake'
-    });
-
     showToast(`League created! Invite code: ${league.invite_code}`, 'success', 8000);
     modal.classList.add('hidden');
 

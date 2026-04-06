@@ -248,7 +248,7 @@
         </div>
         <div style="background:var(--bg-primary);border-radius:var(--radius-sm);padding:12px;font-size:0.8rem;color:var(--text-secondary);">
           <strong style="color:var(--text-primary);">Default Settings</strong><br>
-          7-player rosters &middot; 5 starters &middot; $100 FAAB &middot; Snake draft &middot; Elite Series + Majors
+          7-player rosters &middot; 5 starters &middot; $100 FAAB &middot; Elite Series + Majors
         </div>
         <div id="create-league-error" class="auth-error hidden"></div>
         <button class="btn-primary btn-full" id="create-league-submit">Create League & Get Invite Code</button>
@@ -557,8 +557,6 @@
           faab_balance: 100,
           draft_position: 1
         }).select().single();
-
-        await db.from('drafts').insert({ league_id: league.id, status: 'pending', type: 'snake' });
 
         showToast(`League created! Invite code: ${league.invite_code}`, 'success', 8000);
         createModal.classList.add('hidden');

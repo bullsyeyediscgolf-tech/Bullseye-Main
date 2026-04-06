@@ -187,10 +187,7 @@
       <a href="standings.html" class="nav-item">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>Standings
       </a>
-      <a href="draft.html" class="nav-item">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Draft
-      </a>
-      <a href="waivers.html" class="nav-item">
+<a href="waivers.html" class="nav-item">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Waivers
       </a>
       <a href="trades.html" class="nav-item">
@@ -378,7 +375,7 @@
           <div class="settings-card-title" style="color:#ef4444;">Danger Zone</div>
           <div style="margin-bottom:12px;">
             <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 12px;">
-              Reset this league to its initial state. This will delete all rosters, draft picks, lineups, and waiver claims for every team. Teams stay in the league but all players become free agents and the draft resets to pending.
+              Reset this league to its initial state. This will delete all rosters, lineups, and waiver claims for every team. Teams stay in the league but all players become free agents.
             </p>
             <div id="reset-league-area">
               <button class="btn-danger" id="reset-league-btn" onclick="confirmResetLeague()">Reset League</button>
@@ -752,7 +749,7 @@ function confirmResetLeague() {
   const area = document.getElementById('reset-league-area');
   area.innerHTML = `
     <p style="font-size:0.82rem;color:#ef4444;font-weight:600;margin:0 0 8px;">
-      Are you sure? This will wipe ALL rosters, draft picks, lineups, and waiver claims for every team. This cannot be undone.
+      Are you sure? This will wipe ALL rosters, lineups, and waiver claims for every team. This cannot be undone.
     </p>
     <button class="btn-danger-confirm" onclick="executeResetLeague()">Yes, Reset Everything</button>
     <button class="btn-remove-cancel" style="margin-left:8px;" onclick="cancelResetLeague()">Cancel</button>
@@ -771,15 +768,11 @@ async function executeResetLeague() {
   const leagueId = league.id;
 
   try {
-    // 1. Delete all draft picks for this league
-    const { error: picksErr } = await db.from('draft_picks').delete().eq('league_id', leagueId);
-    if (picksErr) throw new Error('draft picks: ' + picksErr.message);
-
-    // 2. Delete all rosters for this league
+    // 1. Delete all rosters for this league
     const { error: rostersErr } = await db.from('rosters').delete().eq('league_id', leagueId);
     if (rostersErr) throw new Error('rosters: ' + rostersErr.message);
 
-    // 3. Delete all lineups for teams in this league
+    // 2. Delete all lineups for teams in this league
     const { data: teamIds } = await db.from('teams').select('id').eq('league_id', leagueId);
     if (teamIds?.length) {
       for (const t of teamIds) {
@@ -787,17 +780,8 @@ async function executeResetLeague() {
       }
     }
 
-    // 4. Delete all waiver claims for this league
+    // 3. Delete all waiver claims for this league
     await db.from('waiver_claims').delete().eq('league_id', leagueId);
-
-    // 5. Reset draft record back to pending
-    const { error: draftErr } = await db.from('drafts').update({
-      status: 'pending',
-      current_pick: 1,
-      started_at: null,
-      completed_at: null
-    }).eq('league_id', leagueId);
-    if (draftErr) throw new Error('draft reset: ' + draftErr.message);
 
     showToast('League has been reset! All players are free agents.', 'success', 5000);
     cancelResetLeague();
