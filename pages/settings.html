@@ -567,7 +567,7 @@ function populateFields() {
     currentPositions = [...scoring.positions];
   } else {
     // Legacy fallback: generate from starters number
-    const starters = s.starters ?? 5;
+    const starters = s.starters ?? 4;
     const defaults = ['putter', 'driver', 'approacher'];
     currentPositions = [];
     for (let i = 0; i < starters; i++) {

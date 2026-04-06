@@ -17,11 +17,11 @@ create table leagues (
   invite_code text unique default substring(md5(random()::text), 1, 8),
   settings jsonb not null default '{
     "team_size": 7,
-    "starters": 5,
+    "starters": 4,
     "starting_faab": 100,
     "waiver_blackout_hours": 24,
     "scoring": {
-      "positions": ["putter","driver","approacher","flex","flex"],
+      "positions": ["putter","driver","approacher","flex"],
       "place_points": [4,2,1,0,-1],
       "lead_card_multiplier": 1.5,
       "podium_bonus": [15,8,3],

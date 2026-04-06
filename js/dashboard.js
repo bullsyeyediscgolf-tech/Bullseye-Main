@@ -102,7 +102,6 @@ async function loadUserLeagues(user) {
     loadSchedulePreview(),
     loadActivityFeed(league.id),
     loadTeamStats(team),
-    loadMyRoster(team),
   ]);
 
   // Subscribe to realtime updates
@@ -130,81 +129,6 @@ async function loadTeamStats(team) {
 
   const totalPts = fantasyScores?.reduce((sum, s) => sum + (s.league_points || 0), 0) || 0;
   document.getElementById('stat-season-pts').textContent = totalPts > 0 ? `+${totalPts}` : totalPts;
-}
-
-async function loadMyRoster(team) {
-  const container = document.getElementById('my-roster-list');
-  const league = AppState.currentLeague;
-  const myTeamId = team.id;
-
-  // Get all teams in the league
-  const { data: allTeams } = await db
-    .from('teams')
-    .select('id, name, manager_id')
-    .eq('league_id', league.id)
-    .order('name', { ascending: true });
-
-  if (!allTeams?.length) {
-    container.innerHTML = `
-      <div style="text-align:center;padding:20px;">
-        <div style="font-size:0.85rem;color:var(--text-muted);">No teams in this league yet.</div>
-      </div>`;
-    return;
-  }
-
-  // Get all active rosters for every team in one query
-  const { data: allRosters } = await db
-    .from('rosters')
-    .select('*, team_id, players(name, pdga_rating)')
-    .in('team_id', allTeams.map(t => t.id))
-    .eq('is_active', true)
-    .order('created_at', { ascending: true });
-
-  // Group rosters by team
-  const rostersByTeam = {};
-  (allRosters || []).forEach(r => {
-    if (!rostersByTeam[r.team_id]) rostersByTeam[r.team_id] = [];
-    rostersByTeam[r.team_id].push(r);
-  });
-
-  // Put the user's team first, then the rest
-  const sortedTeams = [
-    allTeams.find(t => t.id === myTeamId),
-    ...allTeams.filter(t => t.id !== myTeamId)
-  ].filter(Boolean);
-
-  const html = sortedTeams.map(t => {
-    const isMe = t.id === myTeamId;
-    const roster = rostersByTeam[t.id] || [];
-
-    const playersHtml = roster.length
-      ? roster.map(r => {
-          const p = r.players;
-          return `
-            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
-              <div class="user-avatar" style="width:26px;height:26px;font-size:0.55rem;flex-shrink:0;background:var(--bg-card-hover);color:var(--text-primary);display:flex;align-items:center;justify-content:center;border-radius:50%;">
-                ${getInitials(p?.name || '??')}
-              </div>
-              <div style="flex:1;min-width:0;">
-                <span style="font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;">${p?.name || 'Unknown'}</span>
-              </div>
-              <span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;">${p?.pdga_rating || '—'}</span>
-            </div>`;
-        }).join('')
-      : `<div style="font-size:0.78rem;color:var(--text-muted);padding:4px 0;font-style:italic;">No players</div>`;
-
-    return `
-      <div style="margin-bottom:14px;${isMe ? 'background:var(--accent-dim);border-radius:8px;padding:10px 12px;margin-left:-12px;margin-right:-12px;' : 'padding:0 0;'}">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span style="font-weight:700;font-size:0.88rem;">${t.name}</span>
-          ${isMe ? '<span style="font-size:0.65rem;color:var(--accent);font-weight:600;">YOU</span>' : ''}
-          <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted);">${roster.length} player${roster.length !== 1 ? 's' : ''}</span>
-        </div>
-        ${playersHtml}
-      </div>`;
-  }).join('');
-
-  container.innerHTML = html;
 }
 
 async function loadStandings(leagueId, myTeamId) {
@@ -287,12 +211,7 @@ async function loadNextTournament(teamId, leagueId) {
 }
 
 async function loadLineupPreview(teamId, tournamentId) {
-  // Read positions from league settings (fall back to defaults)
-  const league = AppState.currentLeague;
-  const scoring = league?.settings?.scoring || {};
-  const positions = scoring.positions?.length
-    ? scoring.positions
-    : ['putter', 'driver', 'approacher', 'flex', 'flex'];
+  const positions = getLineupPreviewPositions();
 
   const { data: lineup } = await db
     .from('lineups')
@@ -309,17 +228,10 @@ async function loadLineupPreview(teamId, tournamentId) {
     lineupMap[l.position].push(l.players?.name || 'Unknown');
   });
 
-  // Track flex index for multiple flex slots
-  let flexIdx = 0;
-  const slotsHtml = positions.map((pos) => {
+  const slotsHtml = positions.map((pos, i) => {
+    const occurrence = positions.slice(0, i + 1).filter(p => p === pos).length;
     const players = lineupMap[pos] || [];
-    let player;
-    if (pos === 'flex') {
-      player = players[flexIdx] || null;
-      flexIdx++;
-    } else {
-      player = players[0] || null;
-    }
+    const player = players[occurrence - 1];
 
     return `
       <div class="lineup-slot ${player ? 'filled' : ''}">
@@ -334,6 +246,14 @@ async function loadLineupPreview(teamId, tournamentId) {
   }).join('');
 
   document.getElementById('lineup-preview').innerHTML = slotsHtml;
+}
+
+// Read lineup positions from league settings with safe default.
+function getLineupPreviewPositions() {
+  const positions = AppState.currentLeague?.settings?.scoring?.positions;
+  return Array.isArray(positions) && positions.length
+    ? positions
+    : ['putter', 'driver', 'approacher', 'flex'];
 }
 
 async function loadLiveScores(teamId, tournamentId) {
@@ -584,6 +504,13 @@ function setupCreateLeagueModal() {
       name: teamName,
       faab_balance: 100,
       draft_position: 1
+    });
+
+    // Create draft record
+    await db.from('drafts').insert({
+      league_id: league.id,
+      status: 'pending',
+      type: 'snake'
     });
 
     showToast(`League created! Invite code: ${league.invite_code}`, 'success', 8000);

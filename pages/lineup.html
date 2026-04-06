@@ -228,7 +228,10 @@
       <a href="standings.html" class="nav-item">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>Standings
       </a>
-<a href="waivers.html" class="nav-item">
+      <a href="draft.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Draft
+      </a>
+      <a href="waivers.html" class="nav-item">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Waivers
       </a>
       <a href="trades.html" class="nav-item">
@@ -266,8 +269,8 @@
         <div class="card" style="max-width:400px;margin:60px auto;text-align:center;padding:40px;">
           <div style="font-size:2.5rem;margin-bottom:16px;">📋</div>
           <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:8px;">No Roster Yet</h2>
-          <p style="color:var(--text-secondary);margin-bottom:24px;font-size:0.9rem;">Your roster is empty. Pick up players from the Player Pool or Waivers.</p>
-          <a href="players.html" class="btn-primary">Player Pool →</a>
+          <p style="color:var(--text-secondary);margin-bottom:24px;font-size:0.9rem;">Complete the draft first to build your roster.</p>
+          <a href="draft.html" class="btn-primary">Go to Draft →</a>
         </div>
       </div>
 
@@ -355,29 +358,38 @@ const lineupState = {
   searchQuery: '',
 };
 
-// Built dynamically from league settings after load
-let POSITIONS = [];
+const POSITION_META = {
+  putter: { label: 'Putter', short: 'PUT', cls: 'pos-putter' },
+  driver: { label: 'Driver', short: 'DRV', cls: 'pos-driver' },
+  approacher: { label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
+  flex: { label: 'Flex', short: 'FLX', cls: 'pos-flex' },
+};
 
-function buildPositions(league) {
-  const scoring = league?.settings?.scoring || {};
-  const configured = scoring.positions?.length
-    ? scoring.positions
-    : ['putter', 'driver', 'approacher', 'flex', 'flex'];
+let lineupPositions = [];
 
-  const POS_META = {
-    putter:     { label: 'Putter',     short: 'PUT', cls: 'pos-putter' },
-    driver:     { label: 'Driver',     short: 'DRV', cls: 'pos-driver' },
-    approacher: { label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
-    flex:       { label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
-  };
+// Build default lineup positions when league settings are missing.
+function getLeaguePositionOrder() {
+  const positions = lineupState.league?.settings?.scoring?.positions;
+  return Array.isArray(positions) && positions.length
+    ? positions
+    : ['putter', 'driver', 'approacher', 'flex'];
+}
 
-  const counts = {};
-  POSITIONS = configured.map(pos => {
-    counts[pos] = (counts[pos] || 0) + 1;
-    const meta = POS_META[pos] || { label: pos, short: pos.toUpperCase().slice(0, 3), cls: 'pos-flex' };
-    const key = counts[pos] > 1 ? `${pos}_${counts[pos]}` : pos;
-    return { key, label: meta.label, short: meta.short, cls: meta.cls };
+// Convert position list into renderable lineup slots with unique keys.
+function buildLineupPositions(positionOrder) {
+  const seen = {};
+  return positionOrder.map((position) => {
+    seen[position] = (seen[position] || 0) + 1;
+    const meta = POSITION_META[position] || POSITION_META.flex;
+    const suffix = seen[position] > 1 ? `_${seen[position]}` : '';
+    return { key: `${position}${suffix}`, position, ...meta };
   });
+}
+
+// Save lineup rows using base position value (not UI slot key).
+function getStoredPosition(slotKey) {
+  const slot = lineupPositions.find((p) => p.key === slotKey);
+  return slot?.position || 'flex';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -398,7 +410,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedId = getSelectedTeamId();
   lineupState.team = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
   lineupState.league = lineupState.team.leagues;
-  buildPositions(lineupState.league);
   document.getElementById('league-name-display').textContent = lineupState.league?.name || '—';
 
   // Load roster
@@ -457,6 +468,7 @@ function buildTournamentSelector(tournaments) {
 async function loadLineupForTournament(tournament) {
   lineupState.selectedSlot = null;
   lineupState.lineup = {};
+  lineupPositions = buildLineupPositions(getLeaguePositionOrder());
 
   document.getElementById('lineup-tournament-name').textContent = tournament.name;
   document.getElementById('lineup-tournament-date').textContent =
@@ -475,17 +487,16 @@ async function loadLineupForTournament(tournament) {
     .eq('team_id', lineupState.team.id)
     .eq('tournament_id', tournament.id);
 
-  // Map position -> player
-  const flexPlayers = [];
-  (existing || []).forEach(l => {
-    if (l.position === 'flex') {
-      flexPlayers.push(l);
-    } else {
-      lineupState.lineup[l.position] = { player_id: l.player_id, player: l.players };
-    }
+  // Map stored positions to configured slot keys in order.
+  const byPosition = {};
+  (existing || []).forEach((entry) => {
+    if (!byPosition[entry.position]) byPosition[entry.position] = [];
+    byPosition[entry.position].push(entry);
   });
-  flexPlayers.forEach((l, i) => {
-    lineupState.lineup[`flex_${i + 1}`] = { player_id: l.player_id, player: l.players };
+  lineupPositions.forEach((slot) => {
+    const next = byPosition[slot.position]?.shift();
+    if (!next) return;
+    lineupState.lineup[slot.key] = { player_id: next.player_id, player: next.players };
   });
 
   renderLineupSlots();
@@ -504,7 +515,7 @@ async function loadLineupForTournament(tournament) {
 
 function renderLineupSlots() {
   const container = document.getElementById('lineup-slots');
-  const html = POSITIONS.map(pos => {
+  const html = lineupPositions.map(pos => {
     const filled = lineupState.lineup[pos.key];
     const isSelected = lineupState.selectedSlot === pos.key;
     const isLocked = lineupState.locked;
@@ -535,7 +546,7 @@ function selectSlot(posKey) {
   lineupState.selectedSlot = posKey;
   renderLineupSlots();
   renderPickerPlayers();
-  const pos = POSITIONS.find(p => p.key === posKey);
+  const pos = lineupPositions.find(p => p.key === posKey);
   document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label || posKey}`;
 }
 
@@ -547,47 +558,12 @@ function removeFromSlot(e, posKey) {
 }
 
 function renderPickerEmpty() {
-  const { roster, lineup } = lineupState;
-
-  // Show full roster overview when no slot is selected
-  if (roster?.length) {
-    const usedIds = new Set(Object.values(lineup).filter(l => l?.player_id).map(l => l.player_id));
-    const players = roster.map(r => r.players).filter(Boolean)
-      .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
-
-    const html = players.map(p => {
-      const inLineup = usedIds.has(p.id);
-      return `
-        <div class="picker-player-row" style="opacity:${inLineup ? '0.5' : '1'};">
-          <div class="player-avatar" style="width:34px;height:34px;font-size:0.7rem;flex-shrink:0;">
-            ${getInitials(p.name)}
-          </div>
-          <div class="player-info">
-            <div class="player-name">${p.name}</div>
-            <div class="player-meta">PDGA #${p.pdga_number || '—'}</div>
-          </div>
-          <div class="picker-player-stat">
-            <span class="highlight">${p.pdga_rating || '—'}</span>
-            <span>rating</span>
-          </div>
-          ${inLineup
-            ? `<span style="font-size:0.7rem;color:var(--accent);padding:0 8px;">In lineup</span>`
-            : `<span style="font-size:0.7rem;color:var(--text-muted);padding:0 8px;">Available</span>`
-          }
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('picker-players').innerHTML = html;
-    document.getElementById('picker-hint').textContent = '← Select a slot to assign a player';
-  } else {
-    document.getElementById('picker-players').innerHTML = `
-      <div class="no-slot-selected">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-        <div>No players on your roster yet</div>
-      </div>`;
-    document.getElementById('picker-hint').textContent = 'Add players from the Player Pool first';
-  }
+  document.getElementById('picker-players').innerHTML = `
+    <div class="no-slot-selected">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      <div>Click a lineup slot on the left to pick a player</div>
+    </div>`;
+  document.getElementById('picker-hint').textContent = '← Select a slot first';
 }
 
 function renderPickerPlayers() {
@@ -653,14 +629,14 @@ function assignPlayer(playerId) {
   lineupState.lineup[selectedSlot] = { player_id: player.id, player };
 
   // Auto-advance to next empty slot
-  const currentIdx = POSITIONS.findIndex(p => p.key === selectedSlot);
-  const nextEmpty = POSITIONS.slice(currentIdx + 1).find(p => !lineupState.lineup[p.key]);
+  const currentIdx = lineupPositions.findIndex(p => p.key === selectedSlot);
+  const nextEmpty = lineupPositions.slice(currentIdx + 1).find(p => !lineupState.lineup[p.key]);
   lineupState.selectedSlot = nextEmpty?.key || null;
 
   renderLineupSlots();
   if (lineupState.selectedSlot) {
     renderPickerPlayers();
-    const pos = POSITIONS.find(p => p.key === lineupState.selectedSlot);
+    const pos = lineupPositions.find(p => p.key === lineupState.selectedSlot);
     document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label}`;
   } else {
     renderPickerEmpty();
@@ -700,7 +676,7 @@ async function saveLineup() {
     team_id: team.id,
     tournament_id: tournament.id,
     player_id: val.player_id,
-    position: key.startsWith('flex') ? 'flex' : key,
+    position: getStoredPosition(key),
     locked: false,
   }));
 
