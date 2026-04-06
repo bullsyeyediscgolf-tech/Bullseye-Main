@@ -358,13 +358,39 @@ const lineupState = {
   searchQuery: '',
 };
 
-const POSITIONS = [
-  { key: 'putter',     label: 'Putter',     short: 'PUT', cls: 'pos-putter' },
-  { key: 'driver',     label: 'Driver',     short: 'DRV', cls: 'pos-driver' },
-  { key: 'approacher', label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
-  { key: 'flex_1',     label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
-  { key: 'flex_2',     label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
-];
+const POSITION_META = {
+  putter: { label: 'Putter', short: 'PUT', cls: 'pos-putter' },
+  driver: { label: 'Driver', short: 'DRV', cls: 'pos-driver' },
+  approacher: { label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
+  flex: { label: 'Flex', short: 'FLX', cls: 'pos-flex' },
+};
+
+let lineupPositions = [];
+
+// Build default lineup positions when league settings are missing.
+function getLeaguePositionOrder() {
+  const positions = lineupState.league?.settings?.scoring?.positions;
+  return Array.isArray(positions) && positions.length
+    ? positions
+    : ['putter', 'driver', 'approacher', 'flex'];
+}
+
+// Convert position list into renderable lineup slots with unique keys.
+function buildLineupPositions(positionOrder) {
+  const seen = {};
+  return positionOrder.map((position) => {
+    seen[position] = (seen[position] || 0) + 1;
+    const meta = POSITION_META[position] || POSITION_META.flex;
+    const suffix = seen[position] > 1 ? `_${seen[position]}` : '';
+    return { key: `${position}${suffix}`, position, ...meta };
+  });
+}
+
+// Save lineup rows using base position value (not UI slot key).
+function getStoredPosition(slotKey) {
+  const slot = lineupPositions.find((p) => p.key === slotKey);
+  return slot?.position || 'flex';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireAuth();
@@ -442,6 +468,7 @@ function buildTournamentSelector(tournaments) {
 async function loadLineupForTournament(tournament) {
   lineupState.selectedSlot = null;
   lineupState.lineup = {};
+  lineupPositions = buildLineupPositions(getLeaguePositionOrder());
 
   document.getElementById('lineup-tournament-name').textContent = tournament.name;
   document.getElementById('lineup-tournament-date').textContent =
@@ -460,17 +487,16 @@ async function loadLineupForTournament(tournament) {
     .eq('team_id', lineupState.team.id)
     .eq('tournament_id', tournament.id);
 
-  // Map position -> player
-  const flexPlayers = [];
-  (existing || []).forEach(l => {
-    if (l.position === 'flex') {
-      flexPlayers.push(l);
-    } else {
-      lineupState.lineup[l.position] = { player_id: l.player_id, player: l.players };
-    }
+  // Map stored positions to configured slot keys in order.
+  const byPosition = {};
+  (existing || []).forEach((entry) => {
+    if (!byPosition[entry.position]) byPosition[entry.position] = [];
+    byPosition[entry.position].push(entry);
   });
-  flexPlayers.forEach((l, i) => {
-    lineupState.lineup[`flex_${i + 1}`] = { player_id: l.player_id, player: l.players };
+  lineupPositions.forEach((slot) => {
+    const next = byPosition[slot.position]?.shift();
+    if (!next) return;
+    lineupState.lineup[slot.key] = { player_id: next.player_id, player: next.players };
   });
 
   renderLineupSlots();
@@ -489,7 +515,7 @@ async function loadLineupForTournament(tournament) {
 
 function renderLineupSlots() {
   const container = document.getElementById('lineup-slots');
-  const html = POSITIONS.map(pos => {
+  const html = lineupPositions.map(pos => {
     const filled = lineupState.lineup[pos.key];
     const isSelected = lineupState.selectedSlot === pos.key;
     const isLocked = lineupState.locked;
@@ -520,7 +546,7 @@ function selectSlot(posKey) {
   lineupState.selectedSlot = posKey;
   renderLineupSlots();
   renderPickerPlayers();
-  const pos = POSITIONS.find(p => p.key === posKey);
+  const pos = lineupPositions.find(p => p.key === posKey);
   document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label || posKey}`;
 }
 
@@ -603,14 +629,14 @@ function assignPlayer(playerId) {
   lineupState.lineup[selectedSlot] = { player_id: player.id, player };
 
   // Auto-advance to next empty slot
-  const currentIdx = POSITIONS.findIndex(p => p.key === selectedSlot);
-  const nextEmpty = POSITIONS.slice(currentIdx + 1).find(p => !lineupState.lineup[p.key]);
+  const currentIdx = lineupPositions.findIndex(p => p.key === selectedSlot);
+  const nextEmpty = lineupPositions.slice(currentIdx + 1).find(p => !lineupState.lineup[p.key]);
   lineupState.selectedSlot = nextEmpty?.key || null;
 
   renderLineupSlots();
   if (lineupState.selectedSlot) {
     renderPickerPlayers();
-    const pos = POSITIONS.find(p => p.key === lineupState.selectedSlot);
+    const pos = lineupPositions.find(p => p.key === lineupState.selectedSlot);
     document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label}`;
   } else {
     renderPickerEmpty();
@@ -650,7 +676,7 @@ async function saveLineup() {
     team_id: team.id,
     tournament_id: tournament.id,
     player_id: val.player_id,
-    position: key.startsWith('flex') ? 'flex' : key,
+    position: getStoredPosition(key),
     locked: false,
   }));
 

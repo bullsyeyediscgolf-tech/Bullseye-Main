@@ -211,7 +211,7 @@ async function loadNextTournament(teamId, leagueId) {
 }
 
 async function loadLineupPreview(teamId, tournamentId) {
-  const positions = ['putter', 'driver', 'approacher', 'flex', 'flex'];
+  const positions = getLineupPreviewPositions();
 
   const { data: lineup } = await db
     .from('lineups')
@@ -229,10 +229,9 @@ async function loadLineupPreview(teamId, tournamentId) {
   });
 
   const slotsHtml = positions.map((pos, i) => {
-    const isFlexSecond = pos === 'flex' && i === 4;
-    const posKey = pos === 'flex' ? (isFlexSecond ? 'flex_2' : 'flex') : pos;
+    const occurrence = positions.slice(0, i + 1).filter(p => p === pos).length;
     const players = lineupMap[pos] || [];
-    const player = pos === 'flex' ? players[isFlexSecond ? 1 : 0] : players[0];
+    const player = players[occurrence - 1];
 
     return `
       <div class="lineup-slot ${player ? 'filled' : ''}">
@@ -247,6 +246,14 @@ async function loadLineupPreview(teamId, tournamentId) {
   }).join('');
 
   document.getElementById('lineup-preview').innerHTML = slotsHtml;
+}
+
+// Read lineup positions from league settings with safe default.
+function getLineupPreviewPositions() {
+  const positions = AppState.currentLeague?.settings?.scoring?.positions;
+  return Array.isArray(positions) && positions.length
+    ? positions
+    : ['putter', 'driver', 'approacher', 'flex'];
 }
 
 async function loadLiveScores(teamId, tournamentId) {
