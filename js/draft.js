@@ -157,21 +157,36 @@ async function startDraft() {
   btn.disabled = true;
   btn.textContent = 'Starting...';
 
-  const { error } = await db
+  const { data, error } = await db
     .from('drafts')
     .update({
       status: 'active',
       current_pick: 1,
       started_at: new Date().toISOString()
     })
-    .eq('league_id', draftState.league.id);
+    .eq('league_id', draftState.league.id)
+    .select();
 
   if (error) {
     showToast('Failed to start draft: ' + error.message, 'error');
     btn.disabled = false;
     btn.textContent = '🚀 Start Draft';
+    return;
   }
-  // Realtime will trigger state change for all users
+
+  // Check if the update actually matched a row (RLS can silently return 0 rows)
+  if (!data || data.length === 0) {
+    showToast('Unable to start draft — you may not have permission.', 'error');
+    btn.disabled = false;
+    btn.textContent = '🚀 Start Draft';
+    return;
+  }
+
+  // Update local state immediately (don't wait for realtime)
+  draftState.draft = data[0];
+  document.getElementById('draft-pending').classList.add('hidden');
+  showActiveState();
+  showToast('Draft started!', 'success');
 }
 
 // ── ACTIVE STATE ──
@@ -494,7 +509,7 @@ async function pickPlayer(playerId) {
   const pickInRound = currentPick - (round - 1) * cols;
 
   // Insert pick
-  const { error: pickErr } = await db.from('draft_picks').insert({
+  const { data: pickData, error: pickErr } = await db.from('draft_picks').insert({
     draft_id: draft.id,
     league_id: league.id,
     team_id: onClockTeam.id,
@@ -502,10 +517,15 @@ async function pickPlayer(playerId) {
     pick_number: currentPick,
     round,
     pick_in_round: pickInRound,
-  });
+  }).select('*, players(*), teams(*)');
 
   if (pickErr) {
     showToast('Pick failed: ' + pickErr.message, 'error');
+    return;
+  }
+
+  if (!pickData || pickData.length === 0) {
+    showToast('Pick failed — permission denied. Try refreshing the page.', 'error');
     return;
   }
 
@@ -518,15 +538,37 @@ async function pickPlayer(playerId) {
     is_active: true,
   });
 
+  // Update local state immediately
+  draftState.picks.push(pickData[0]);
+
   const nextPick = currentPick + 1;
   const isDraftDone = nextPick > totalPicks;
 
   // Advance or complete draft
-  await db.from('drafts').update({
+  const { data: updatedDraft } = await db.from('drafts').update({
     current_pick: isDraftDone ? currentPick : nextPick,
     status: isDraftDone ? 'completed' : 'active',
     ...(isDraftDone ? { completed_at: new Date().toISOString() } : {})
-  }).eq('id', draft.id);
+  }).eq('id', draft.id).select();
+
+  // Update local draft state
+  if (updatedDraft?.[0]) {
+    draftState.draft = updatedDraft[0];
+  }
+
+  // Re-render immediately (don't wait for realtime)
+  renderDraftBoard();
+  renderPlayerList();
+  renderRecentPicks();
+  updateTicker();
+  startTimer();
+
+  if (isDraftDone) {
+    clearInterval(draftState.timerInterval);
+    document.getElementById('draft-active').classList.add('hidden');
+    document.getElementById('draft-completed').classList.remove('hidden');
+    showToast('Draft complete!', 'success', 5000);
+  }
 
   // Realtime handles the rest
 }
