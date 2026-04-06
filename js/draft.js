@@ -67,12 +67,20 @@ async function loadDraftRoom(user) {
 
   draftState.teams = teams || [];
 
-  // Load draft record
-  const { data: draft } = await db
+  // Load draft record (create one if missing — e.g. league created before RLS fix)
+  let { data: draft } = await db
     .from('drafts')
     .select('*')
     .eq('league_id', league.id)
     .single();
+
+  if (!draft && draftState.isCommissioner) {
+    const { data: created } = await db
+      .from('drafts')
+      .insert({ league_id: league.id, status: 'pending', type: 'snake' })
+      .select();
+    if (created?.[0]) draft = created[0];
+  }
 
   draftState.draft = draft;
 
@@ -156,6 +164,27 @@ async function startDraft() {
   const btn = document.getElementById('start-draft-btn');
   btn.disabled = true;
   btn.textContent = 'Starting...';
+
+  // Ensure a draft record exists (it may not if league was created before RLS policies)
+  if (!draftState.draft) {
+    const { data: inserted, error: insertErr } = await db
+      .from('drafts')
+      .insert({ league_id: draftState.league.id, status: 'pending', type: 'snake' })
+      .select();
+    if (insertErr) {
+      showToast('Failed to create draft: ' + insertErr.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '🚀 Start Draft';
+      return;
+    }
+    if (!inserted || inserted.length === 0) {
+      showToast('Unable to create draft — you may not have permission.', 'error');
+      btn.disabled = false;
+      btn.textContent = '🚀 Start Draft';
+      return;
+    }
+    draftState.draft = inserted[0];
+  }
 
   const { data, error } = await db
     .from('drafts')
