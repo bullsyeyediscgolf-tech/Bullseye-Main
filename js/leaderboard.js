@@ -270,8 +270,10 @@ function computeFantasyScores() {
   });
 
   // Step 2: position stat bonuses
-  // For each position type, find best + second best stat across all lineups
-  ['putter', 'driver', 'approacher'].forEach(pos => {
+  // For each position type (non-flex), find best + second best stat across all lineups
+  const configuredPositions = lbState.league?.settings?.scoring?.positions || ['putter', 'driver', 'approacher'];
+  const bonusPositions = [...new Set(configuredPositions.filter(p => p !== 'flex'))];
+  bonusPositions.forEach(pos => {
     const entries = [];
     teamScores.forEach(ts => {
       const slot = ts.playerBreakdowns.find(p => p.position === pos);

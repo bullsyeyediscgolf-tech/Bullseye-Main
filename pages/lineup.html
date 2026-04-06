@@ -355,13 +355,30 @@ const lineupState = {
   searchQuery: '',
 };
 
-const POSITIONS = [
-  { key: 'putter',     label: 'Putter',     short: 'PUT', cls: 'pos-putter' },
-  { key: 'driver',     label: 'Driver',     short: 'DRV', cls: 'pos-driver' },
-  { key: 'approacher', label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
-  { key: 'flex_1',     label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
-  { key: 'flex_2',     label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
-];
+// Built dynamically from league settings after load
+let POSITIONS = [];
+
+function buildPositions(league) {
+  const scoring = league?.settings?.scoring || {};
+  const configured = scoring.positions?.length
+    ? scoring.positions
+    : ['putter', 'driver', 'approacher', 'flex', 'flex'];
+
+  const POS_META = {
+    putter:     { label: 'Putter',     short: 'PUT', cls: 'pos-putter' },
+    driver:     { label: 'Driver',     short: 'DRV', cls: 'pos-driver' },
+    approacher: { label: 'Approacher', short: 'APP', cls: 'pos-approacher' },
+    flex:       { label: 'Flex',       short: 'FLX', cls: 'pos-flex' },
+  };
+
+  const counts = {};
+  POSITIONS = configured.map(pos => {
+    counts[pos] = (counts[pos] || 0) + 1;
+    const meta = POS_META[pos] || { label: pos, short: pos.toUpperCase().slice(0, 3), cls: 'pos-flex' };
+    const key = counts[pos] > 1 ? `${pos}_${counts[pos]}` : pos;
+    return { key, label: meta.label, short: meta.short, cls: meta.cls };
+  });
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireAuth();
@@ -381,6 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedId = getSelectedTeamId();
   lineupState.team = (savedId ? teams.find(t => t.id === savedId) : null) || teams[0];
   lineupState.league = lineupState.team.leagues;
+  buildPositions(lineupState.league);
   document.getElementById('league-name-display').textContent = lineupState.league?.name || '—';
 
   // Load roster
