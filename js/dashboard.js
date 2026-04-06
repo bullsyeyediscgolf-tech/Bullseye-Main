@@ -134,38 +134,74 @@ async function loadTeamStats(team) {
 
 async function loadMyRoster(team) {
   const container = document.getElementById('my-roster-list');
+  const league = AppState.currentLeague;
+  const myTeamId = team.id;
 
-  const { data: roster } = await db
-    .from('rosters')
-    .select('*, players(name, pdga_rating)')
-    .eq('team_id', team.id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true });
+  // Get all teams in the league
+  const { data: allTeams } = await db
+    .from('teams')
+    .select('id, name, manager_id')
+    .eq('league_id', league.id)
+    .order('name', { ascending: true });
 
-  if (!roster?.length) {
+  if (!allTeams?.length) {
     container.innerHTML = `
       <div style="text-align:center;padding:20px;">
-        <div style="font-size:1.5rem;margin-bottom:8px;">👥</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);">No players on your roster yet.</div>
-        <a href="players.html" style="font-size:0.8rem;color:var(--accent);margin-top:6px;display:inline-block;">Browse Player Pool →</a>
-      </div>
-    `;
+        <div style="font-size:0.85rem;color:var(--text-muted);">No teams in this league yet.</div>
+      </div>`;
     return;
   }
 
-  const html = roster.map(r => {
-    const p = r.players;
+  // Get all active rosters for every team in one query
+  const { data: allRosters } = await db
+    .from('rosters')
+    .select('*, team_id, players(name, pdga_rating)')
+    .in('team_id', allTeams.map(t => t.id))
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  // Group rosters by team
+  const rostersByTeam = {};
+  (allRosters || []).forEach(r => {
+    if (!rostersByTeam[r.team_id]) rostersByTeam[r.team_id] = [];
+    rostersByTeam[r.team_id].push(r);
+  });
+
+  // Put the user's team first, then the rest
+  const sortedTeams = [
+    allTeams.find(t => t.id === myTeamId),
+    ...allTeams.filter(t => t.id !== myTeamId)
+  ].filter(Boolean);
+
+  const html = sortedTeams.map(t => {
+    const isMe = t.id === myTeamId;
+    const roster = rostersByTeam[t.id] || [];
+
+    const playersHtml = roster.length
+      ? roster.map(r => {
+          const p = r.players;
+          return `
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+              <div class="user-avatar" style="width:26px;height:26px;font-size:0.55rem;flex-shrink:0;background:var(--bg-card-hover);color:var(--text-primary);display:flex;align-items:center;justify-content:center;border-radius:50%;">
+                ${getInitials(p?.name || '??')}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <span style="font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;">${p?.name || 'Unknown'}</span>
+              </div>
+              <span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;">${p?.pdga_rating || '—'}</span>
+            </div>`;
+        }).join('')
+      : `<div style="font-size:0.78rem;color:var(--text-muted);padding:4px 0;font-style:italic;">No players</div>`;
+
     return `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
-        <div class="user-avatar" style="width:32px;height:32px;font-size:0.65rem;flex-shrink:0;background:var(--bg-card-hover);color:var(--text-primary);display:flex;align-items:center;justify-content:center;border-radius:50%;">
-          ${getInitials(p?.name || '??')}
+      <div style="margin-bottom:14px;${isMe ? 'background:var(--accent-dim);border-radius:8px;padding:10px 12px;margin-left:-12px;margin-right:-12px;' : 'padding:0 0;'}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-weight:700;font-size:0.88rem;">${t.name}</span>
+          ${isMe ? '<span style="font-size:0.65rem;color:var(--accent);font-weight:600;">YOU</span>' : ''}
+          <span style="margin-left:auto;font-size:0.7rem;color:var(--text-muted);">${roster.length} player${roster.length !== 1 ? 's' : ''}</span>
         </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p?.name || 'Unknown'}</div>
-          <div style="font-size:0.72rem;color:var(--text-muted);">${p?.pdga_rating || '—'} rating</div>
-        </div>
-      </div>
-    `;
+        ${playersHtml}
+      </div>`;
   }).join('');
 
   container.innerHTML = html;
