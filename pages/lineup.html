@@ -10,8 +10,10 @@
   <style>
     .lineup-layout {
       display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 20px;
+      grid-template-columns: minmax(320px, 720px);
+      gap: 10px;
+      align-items: start;
+      justify-content: start;
     }
     /* ── LINEUP CARD ── */
     .lineup-card {
@@ -42,6 +44,26 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+    .bench-box {
+      margin: 0 16px 16px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      background: var(--bg-primary);
+    }
+    .bench-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .bench-empty {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-style: italic;
     }
     .lineup-slot {
       display: flex;
@@ -114,80 +136,9 @@
     .pos-bonus-stat { color: var(--text-secondary); flex: 1; }
     .pos-bonus-value { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); }
 
-    /* ── PLAYER PICKER ── */
-    .picker-panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .picker-header {
-      padding: 16px 20px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .picker-title { font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 1px; flex: 1; }
-    .picker-hint { font-size: 0.78rem; color: var(--text-muted); }
-    .picker-search-bar {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    .picker-players {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-height: calc(100vh - 280px);
-      overflow-y: auto;
-    }
-    .picker-player-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .picker-player-row:hover { background: var(--bg-card-hover); border-color: var(--border); }
-    .picker-player-row.already-in-lineup { opacity: 0.4; pointer-events: none; }
-    .picker-player-row.not-on-roster { opacity: 0.35; pointer-events: none; }
-    .picker-player-stat {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      text-align: right;
-    }
-    .picker-player-stat span { display: block; }
-    .picker-player-stat .highlight { color: var(--accent); }
-    .select-btn {
-      padding: 5px 14px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      background: var(--accent);
-      color: #0A0C0F;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .no-slot-selected {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      padding: 60px 24px;
-      text-align: center;
-      color: var(--text-muted);
-    }
-
     @media (max-width: 900px) {
       .lineup-layout { grid-template-columns: 1fr; }
       .lineup-card { position: static; }
-      .picker-players { max-height: 400px; }
     }
   </style>
 </head>
@@ -288,6 +239,10 @@
               <div class="lineup-slots" id="lineup-slots">
                 <!-- Injected by JS -->
               </div>
+              <div class="bench-box">
+                <div class="bench-title">Bench (Unassigned)</div>
+                <div id="bench-list"></div>
+              </div>
 
               <div class="lineup-info-box" id="lineup-status-msg">
                 Click a slot to pick a player for that position.
@@ -321,22 +276,6 @@
             </div>
           </div>
 
-          <!-- RIGHT: PLAYER PICKER -->
-          <div class="picker-panel">
-            <div class="picker-header">
-              <div class="picker-title">My Roster</div>
-              <span class="picker-hint" id="picker-hint">← Select a slot first</span>
-            </div>
-            <div class="picker-search-bar">
-              <input type="text" id="picker-search" placeholder="Search your roster...">
-            </div>
-            <div class="picker-players" id="picker-players">
-              <div class="no-slot-selected">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                <div>Click a lineup slot on the left to pick a player</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -355,7 +294,6 @@ const lineupState = {
   lineup: {},        // position_key -> { player_id, player }
   selectedSlot: null,
   locked: false,
-  searchQuery: '',
 };
 
 const POSITION_META = {
@@ -369,10 +307,12 @@ let lineupPositions = [];
 
 // Build default lineup positions when league settings are missing.
 function getLeaguePositionOrder() {
-  const positions = lineupState.league?.settings?.scoring?.positions;
-  return Array.isArray(positions) && positions.length
-    ? positions
-    : ['putter', 'driver', 'approacher', 'flex'];
+  const settings = lineupState.league?.settings || {};
+  const positions = settings?.scoring?.positions;
+  if (Array.isArray(positions) && positions.length) return positions;
+  const starters = Number.isFinite(settings.starters) ? settings.starters : 4;
+  const base = ['putter', 'driver', 'approacher'];
+  return Array.from({ length: Math.max(1, starters) }, (_, i) => base[i] || 'flex');
 }
 
 // Convert position list into renderable lineup slots with unique keys.
@@ -445,7 +385,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildTournamentSelector(tournaments);
   await loadLineupForTournament(lineupState.tournament);
   document.getElementById('lineup-content').classList.remove('hidden');
-  setupSearch();
   setupSaveBtn();
 });
 
@@ -500,7 +439,6 @@ async function loadLineupForTournament(tournament) {
   });
 
   renderLineupSlots();
-  renderPickerEmpty();
 
   if (lineupState.locked) {
     document.getElementById('lineup-status-msg').textContent = '🔒 Lineup is locked for this tournament.';
@@ -539,79 +477,46 @@ function renderLineupSlots() {
     `;
   }).join('');
   container.innerHTML = html;
+  renderBenchList();
+}
+
+// Shows roster players not in starter slots as BENCH.
+function renderBenchList() {
+  const list = document.getElementById('bench-list');
+  const used = new Set(Object.values(lineupState.lineup).map(v => v?.player_id));
+  const bench = lineupState.roster
+    .map(r => r.players)
+    .filter(p => p && !used.has(p.id))
+    .sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
+  const canAssign = !!lineupState.selectedSlot && !lineupState.locked;
+  if (!bench.length) {
+    list.innerHTML = '<div class="bench-empty">No bench players.</div>';
+    return;
+  }
+  list.innerHTML = bench.map(p => `
+    <div class="lineup-slot ${canAssign ? '' : 'locked'}"
+         onclick="${canAssign ? `assignPlayer('${p.id}')` : ''}">
+      <div class="player-avatar" style="width:34px;height:34px;font-size:0.7rem;flex-shrink:0;">${getInitials(p.name)}</div>
+      <div class="slot-content">
+        <div class="slot-player-name">${p.name}</div>
+        <div class="slot-stat">BENCH · PDGA #${p.pdga_number || '—'} · Rating ${p.pdga_rating || '—'}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
 function selectSlot(posKey) {
   if (lineupState.locked) return;
   lineupState.selectedSlot = posKey;
   renderLineupSlots();
-  renderPickerPlayers();
   const pos = lineupPositions.find(p => p.key === posKey);
-  document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label || posKey}`;
+  document.getElementById('lineup-status-msg').textContent = `Selecting bench player for: ${pos?.label || posKey}`;
 }
 
 function removeFromSlot(e, posKey) {
   e.stopPropagation();
   delete lineupState.lineup[posKey];
   renderLineupSlots();
-  if (lineupState.selectedSlot === posKey) renderPickerPlayers();
-}
-
-function renderPickerEmpty() {
-  document.getElementById('picker-players').innerHTML = `
-    <div class="no-slot-selected">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-      <div>Click a lineup slot on the left to pick a player</div>
-    </div>`;
-  document.getElementById('picker-hint').textContent = '← Select a slot first';
-}
-
-function renderPickerPlayers() {
-  const { roster, lineup, selectedSlot, searchQuery } = lineupState;
-  if (!selectedSlot) { renderPickerEmpty(); return; }
-
-  // Players already in lineup (by player_id)
-  const usedIds = new Set(Object.values(lineup).map(l => l.player_id));
-
-  let players = roster.map(r => r.players).filter(Boolean);
-  if (searchQuery) {
-    players = players.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }
-  players.sort((a, b) => (b.pdga_rating || 0) - (a.pdga_rating || 0));
-
-  if (!players.length) {
-    document.getElementById('picker-players').innerHTML =
-      '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No players found</div>';
-    return;
-  }
-
-  const html = players.map(p => {
-    const inLineup = usedIds.has(p.id);
-    const inThisSlot = lineup[selectedSlot]?.player_id === p.id;
-    return `
-      <div class="picker-player-row ${inLineup && !inThisSlot ? 'already-in-lineup' : ''}"
-           onclick="${inLineup && !inThisSlot ? '' : `assignPlayer('${p.id}')`}">
-        <div class="player-avatar" style="width:34px;height:34px;font-size:0.7rem;flex-shrink:0;">
-          ${getInitials(p.name)}
-        </div>
-        <div class="player-info">
-          <div class="player-name">${p.name}${inThisSlot ? ' ✓' : ''}</div>
-          <div class="player-meta">PDGA #${p.pdga_number || '—'}</div>
-        </div>
-        <div class="picker-player-stat">
-          <span class="highlight">${p.pdga_rating || '—'}</span>
-          <span>rating</span>
-        </div>
-        ${!inLineup || inThisSlot
-          ? `<button class="select-btn" onclick="assignPlayer('${p.id}')">
-              ${inThisSlot ? 'Selected' : 'Pick'}
-            </button>`
-          : `<span style="font-size:0.7rem;color:var(--text-muted);padding:0 8px;">In lineup</span>`
-        }
-      </div>
-    `;
-  }).join('');
-  document.getElementById('picker-players').innerHTML = html;
 }
 
 function assignPlayer(playerId) {
@@ -635,20 +540,11 @@ function assignPlayer(playerId) {
 
   renderLineupSlots();
   if (lineupState.selectedSlot) {
-    renderPickerPlayers();
     const pos = lineupPositions.find(p => p.key === lineupState.selectedSlot);
-    document.getElementById('picker-hint').textContent = `Picking for: ${pos?.label}`;
+    document.getElementById('lineup-status-msg').textContent = `Selecting bench player for: ${pos?.label}`;
   } else {
-    renderPickerEmpty();
-    document.getElementById('picker-hint').textContent = 'Lineup complete!';
+    document.getElementById('lineup-status-msg').textContent = 'Lineup complete!';
   }
-}
-
-function setupSearch() {
-  document.getElementById('picker-search').addEventListener('input', e => {
-    lineupState.searchQuery = e.target.value;
-    if (lineupState.selectedSlot) renderPickerPlayers();
-  });
 }
 
 function setupSaveBtn() {
