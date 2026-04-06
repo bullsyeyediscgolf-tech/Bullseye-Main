@@ -137,7 +137,7 @@ async function loadMyRoster(team) {
 
   const { data: roster } = await db
     .from('rosters')
-    .select('*, players(name, pdga_rating, position)')
+    .select('*, players(name, pdga_rating)')
     .eq('team_id', team.id)
     .eq('is_active', true)
     .order('created_at', { ascending: true });
@@ -155,8 +155,6 @@ async function loadMyRoster(team) {
 
   const html = roster.map(r => {
     const p = r.players;
-    const posLabel = p?.position || '—';
-    const posClass = (p?.position || '').toLowerCase();
     return `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">
         <div class="user-avatar" style="width:32px;height:32px;font-size:0.65rem;flex-shrink:0;background:var(--bg-card-hover);color:var(--text-primary);display:flex;align-items:center;justify-content:center;border-radius:50%;">
@@ -166,7 +164,6 @@ async function loadMyRoster(team) {
           <div style="font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p?.name || 'Unknown'}</div>
           <div style="font-size:0.72rem;color:var(--text-muted);">${p?.pdga_rating || '—'} rating</div>
         </div>
-        <span class="pos-badge pos-${posClass}" style="font-size:0.6rem;">${posLabel === 'approacher' ? 'APP' : posLabel.toUpperCase().slice(0, 3)}</span>
       </div>
     `;
   }).join('');
