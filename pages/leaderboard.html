@@ -275,6 +275,103 @@
     }
     .lead-card-toggle input { width: auto; }
 
+    /* ── POSITION BONUS VISUALIZER ── */
+    .bonus-viz-card {
+      margin-top: 14px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .bonus-viz-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: baseline;
+    }
+    .bonus-viz-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .bonus-viz-subtitle { font-size: 0.74rem; color: var(--text-secondary); }
+    .bonus-viz-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .bonus-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    .bonus-legend-disc {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.35);
+      flex-shrink: 0;
+    }
+    .bonus-track-row {
+      display: grid;
+      grid-template-columns: 82px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .bonus-track-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+    .bonus-track {
+      position: relative;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background:
+        linear-gradient(90deg,
+          rgba(255,255,255,0.08) 0%,
+          rgba(255,255,255,0.08) 1px,
+          transparent 1px,
+          transparent 50%,
+          rgba(255,255,255,0.08) calc(50% + 1px),
+          transparent calc(50% + 1px),
+          transparent 100%);
+      background-color: var(--bg-primary);
+      overflow: hidden;
+    }
+    .bonus-track::before,
+    .bonus-track::after {
+      position: absolute;
+      top: -15px;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .bonus-track::before { content: "0"; left: 2px; }
+    .bonus-track::after { content: "100"; right: 2px; }
+    .bonus-team-disc {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.45);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 2px rgba(10,12,15,0.8);
+    }
+    .bonus-viz-empty {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+
     @media (max-width: 900px) {
       .leaderboard-layout { grid-template-columns: 1fr; }
     }
@@ -404,6 +501,15 @@
                 </thead>
                 <tbody id="lb-body"></tbody>
               </table>
+            </div>
+
+            <div class="card bonus-viz-card" id="bonus-viz-card">
+              <div class="bonus-viz-header">
+                <div class="bonus-viz-title">Position Bonus Visualizer</div>
+                <div class="bonus-viz-subtitle">0–100 stat tracks for tiebreak bonus races</div>
+              </div>
+              <div id="bonus-viz-legend" class="bonus-viz-legend"></div>
+              <div id="bonus-viz-lines"></div>
             </div>
 
             <!-- Last updated -->

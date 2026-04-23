@@ -86,13 +86,13 @@ function getHighestRound(rawHighestRound, configuredRounds) {
 // DGPT Stats (HTML scrape — server-side)
 // ---------------------------------------------------------------------------
 
-async function fetchDgptStats(tournId, division = 'MPO') {
+async function fetchDgptStats(tournId, finalRound, division = 'MPO') {
   try {
     const form = new URLSearchParams();
     form.append('action', 'get_event_stats');
     form.append('id', String(tournId));
     form.append('division', division);
-    form.append('round', '3'); // tournament averages appear on final round page
+    form.append('round', String(finalRound || 1)); // tournament averages appear on final round page
 
     const res = await fetch('https://www.dgpt.com/wp-admin/admin-ajax.php', {
       method: 'POST',
@@ -301,7 +301,8 @@ async function main() {
     // Fetch stats from DGPT (only for completed tournaments)
     if (newStatus === 'completed') {
       console.log('  Fetching DGPT stats...');
-      const dgptStats = await fetchDgptStats(tourn.pdga_id);
+      const finalRoundForStats = configuredRounds > 0 ? configuredRounds : highestRound;
+      const dgptStats = await fetchDgptStats(tourn.pdga_id, finalRoundForStats);
       if (dgptStats) {
         const statRows = [];
         for (const [name, st] of Object.entries(dgptStats)) {

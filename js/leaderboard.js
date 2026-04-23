@@ -152,6 +152,7 @@ async function selectTournament(tournament) {
   await loadTournamentData(tournament);
   computeFantasyScores();
   renderLeaderboard();
+  renderBonusVisualizer();
   renderScoringPanel();
   updateSpoilerState();
   document.getElementById('last-updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
@@ -280,9 +281,14 @@ function computeFantasyScores() {
       if (!slot) return;
       const stats = lbState.allStats[slot.player_id];
       const statVal = SCORING.getPositionStat(stats, pos);
+      if (!Number.isFinite(statVal) || statVal <= 0) return;
       entries.push({ ts, slot, statVal });
     });
-    entries.sort((a, b) => b.statVal - a.statVal);
+    if (!entries.length) return;
+    entries.sort((a, b) => {
+      if (b.statVal !== a.statVal) return b.statVal - a.statVal;
+      return a.slot.rawScore - b.slot.rawScore;
+    });
     if (entries[0]) { entries[0].ts.totalPts += posBest; entries[0].slot.bonuses += posBest; entries[0].slot.posBonusLabel = `+${posBest} ${pos} best`; }
     if (entries[1]) { entries[1].ts.totalPts += posSecond; entries[1].slot.bonuses += posSecond; entries[1].slot.posBonusLabel = `+${posSecond} ${pos} 2nd`; }
   });
@@ -337,6 +343,75 @@ function renderLeaderboard() {
   });
 
   tbody.innerHTML = rows.join('');
+}
+
+// Builds the position list used for bonus stat comparisons.
+function getBonusPositionList() {
+  const fallback = ['putter', 'driver', 'approacher'];
+  const cfg = lbState.league?.settings?.scoring?.positions || fallback;
+  return [...new Set(cfg.filter(p => p !== 'flex'))];
+}
+
+// Maps a team to a stable, scalable HSL color.
+function getTeamColor(teamId) {
+  const idx = lbState.teams.findIndex(team => team.id === teamId);
+  const hue = ((idx >= 0 ? idx : 0) * 137.508) % 360;
+  return `hsl(${hue}, 78%, 60%)`;
+}
+
+// Collects per-position stat entries for visual tracks.
+function getBonusVizTracks() {
+  return getBonusPositionList().map(position => ({
+    position,
+    entries: lbState.fantasyScores.map(teamScore => {
+      const slot = teamScore.playerBreakdowns.find(p => p.position === position);
+      const stats = slot ? lbState.allStats[slot.player_id] : null;
+      const stat = SCORING.getPositionStat(stats, position);
+      const normalized = normalizeBonusStat(stat);
+      return { team: teamScore.team, stat: Number.isFinite(normalized) ? normalized : null };
+    }).filter(entry => entry.stat != null)
+  }));
+}
+
+// Normalizes bonus stats to a 0-100 display range.
+function normalizeBonusStat(value) {
+  if (!Number.isFinite(value)) return null;
+  if (value <= 1) return value * 100;
+  return value;
+}
+
+// Renders the legend row with team color discs.
+function renderBonusLegend() {
+  const legend = document.getElementById('bonus-viz-legend');
+  legend.innerHTML = lbState.fantasyScores.map(teamScore => `
+    <div class="bonus-legend-item">
+      <span class="bonus-legend-disc" style="background:${getTeamColor(teamScore.team.id)};"></span>
+      <span>${teamScore.team.name}</span>
+    </div>
+  `).join('');
+}
+
+// Builds one visual track row for a position bonus.
+function buildBonusTrackRow(track) {
+  const short = track.position === 'approacher' ? 'Approach' : track.position;
+  const dots = track.entries.map(entry => {
+    const pct = Math.max(0, Math.min(100, entry.stat));
+    const label = `${entry.team.name}: ${pct.toFixed(1)}%`;
+    return `<span class="bonus-team-disc" style="left:${pct}%;background:${getTeamColor(entry.team.id)};" title="${label}"></span>`;
+  }).join('');
+  return `<div class="bonus-track-row"><div class="bonus-track-label">${short}</div><div class="bonus-track">${dots}</div></div>`;
+}
+
+// Renders horizontal stat lines for position bonus races.
+function renderBonusVisualizer() {
+  const lines = document.getElementById('bonus-viz-lines');
+  if (!lines) return;
+  const tracks = getBonusVizTracks();
+  const hasData = tracks.some(track => track.entries.length > 0);
+  renderBonusLegend();
+  lines.innerHTML = hasData
+    ? tracks.map(track => buildBonusTrackRow(track)).join('')
+    : '<div class="bonus-viz-empty">No position stat data yet. Enter stats to see bonus races.</div>';
 }
 
 function toggleBreakdown(teamId) {
@@ -475,6 +550,7 @@ function subscribeToUpdates() {
         await loadTournamentData(lbState.currentTournament);
         computeFantasyScores();
         renderLeaderboard();
+        renderBonusVisualizer();
         renderScoringPanel();
         document.getElementById('last-updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
         showToast('Scores updated!', 'info', 2000);
