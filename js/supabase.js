@@ -255,6 +255,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Inject Settings nav link into sidebar if not already present
   const sidebarNav = document.querySelector('.sidebar-nav');
+  if (sidebarNav && !sidebarNav.querySelector('a[href="leaderboard.html"]')) {
+    const leaderboardLink = document.createElement('a');
+    leaderboardLink.href = 'leaderboard.html';
+    leaderboardLink.className = 'nav-item';
+    leaderboardLink.innerHTML = `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Leaderboard`;
+    const myTeamSection = Array.from(sidebarNav.querySelectorAll('.nav-section-label'))
+      .find(label => label.textContent.trim() === 'My Team');
+    if (myTeamSection) {
+      sidebarNav.insertBefore(leaderboardLink, myTeamSection);
+    } else {
+      sidebarNav.appendChild(leaderboardLink);
+    }
+  }
+
   if (sidebarNav && !sidebarNav.querySelector('a[href="settings.html"]')) {
     const settingsLink = document.createElement('a');
     settingsLink.href = 'settings.html';
