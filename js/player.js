@@ -15,6 +15,24 @@ let profileState = {
   isRegistered: false,    // is this player registered for the next tournament
 };
 
+// Fetch registration rows with table-name fallback for schema drift.
+async function fetchRegistrationRows(tournamentId, playerId) {
+  const tables = ['tournament_entries', 'tournament_registrations'];
+  for (const table of tables) {
+    const result = await db
+      .from(table)
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('player_id', playerId)
+      .limit(1);
+    if (!result.error) return result.data || [];
+    if (!String(result.error.message || '').includes('Could not find the table')) {
+      return [];
+    }
+  }
+  return [];
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireAuth();
   if (!user) return;
@@ -95,12 +113,7 @@ async function loadProfile(playerId) {
   const nextTourn = upcomingRes.data?.[0];
   if (nextTourn) {
     profileState.nextTournament = nextTourn;
-    const { data: regRows } = await db
-      .from('tournament_registrations')
-      .select('id')
-      .eq('tournament_id', nextTourn.id)
-      .eq('player_id', playerId)
-      .limit(1);
+    const regRows = await fetchRegistrationRows(nextTourn.id, playerId);
     profileState.isRegistered = regRows && regRows.length > 0;
   }
 

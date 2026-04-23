@@ -54,6 +54,22 @@ async function supabaseRpc(path, { method = 'GET', body, query, onConflict } = {
   return null;
 }
 
+/** Detect which registrations table exists in this Supabase project. */
+async function resolveRegistrationTable() {
+  const candidates = ['tournament_registrations', 'tournament_entries'];
+  for (const table of candidates) {
+    try {
+      await supabaseRpc(table, { query: { select: 'id', limit: '1' } });
+      return table;
+    } catch (err) {
+      if (!String(err.message).includes('PGRST205')) throw err;
+    }
+  }
+  throw new Error(
+    `No registration table found. Expected one of: ${candidates.join(', ')}`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PDGA Registration Scraper
 // ---------------------------------------------------------------------------
@@ -137,6 +153,8 @@ async function fetchRegisteredPlayersFromApi(pdgaId) {
 
 async function main() {
   console.log('Fetching upcoming/active tournaments from Supabase...');
+  const registrationTable = await resolveRegistrationTable();
+  console.log(`Using registration table: ${registrationTable}`);
 
   // Get tournaments that are upcoming or active (within next 30 days or currently happening)
   const tournaments = await supabaseRpc('tournaments', {
@@ -214,13 +232,13 @@ async function main() {
     if (registrationRows.length > 0) {
       // Clear old registrations for this tournament first, then insert fresh
       console.log(`  Clearing old registrations for ${tourn.name}...`);
-      await supabaseRpc(`tournament_registrations?tournament_id=eq.${tourn.id}`, {
+      await supabaseRpc(`${registrationTable}?tournament_id=eq.${tourn.id}`, {
         method: 'DELETE',
       });
 
       console.log(`  Inserting ${registrationRows.length} registrations...`);
       for (let i = 0; i < registrationRows.length; i += 50) {
-        await supabaseRpc('tournament_registrations', {
+        await supabaseRpc(registrationTable, {
           method: 'POST',
           body: registrationRows.slice(i, i + 50),
           onConflict: 'tournament_id,player_id',

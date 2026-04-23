@@ -74,6 +74,14 @@ async function fetchPdgaRound(tournId, division, round) {
   return res.json();
 }
 
+/** Normalize completed rounds using configured tournament rounds when available. */
+function getHighestRound(rawHighestRound, configuredRounds) {
+  const highest = Number(rawHighestRound) || 0;
+  const cap = Number(configuredRounds) || 0;
+  if (cap > 0) return Math.min(highest, cap);
+  return highest;
+}
+
 // ---------------------------------------------------------------------------
 // DGPT Stats (HTML scrape — server-side)
 // ---------------------------------------------------------------------------
@@ -137,14 +145,10 @@ async function main() {
     playerByName[p.name] = p;
   }
 
-  // Process each active or completed tournament that has a pdga_id
+  // Process each tournament that has a pdga_id
   for (const tourn of tournaments) {
     if (!tourn.pdga_id) {
       console.log(`Skipping ${tourn.name} — no pdga_id`);
-      continue;
-    }
-    if (tourn.status === 'upcoming') {
-      console.log(`Skipping ${tourn.name} — upcoming`);
       continue;
     }
 
@@ -165,13 +169,17 @@ async function main() {
       continue;
     }
 
-    const totalRounds = mpoDiv.LatestRound || tourn.rounds;
+    const configuredRounds = Number(tourn.rounds) || 0;
+    const rawHighestRound = Number(eventData.data?.HighestCompletedRound) || 0;
+    const highestRound = getHighestRound(rawHighestRound, configuredRounds);
+    if (rawHighestRound !== highestRound) {
+      console.log(`  Capping completed rounds: ${rawHighestRound} → ${highestRound}`);
+    }
 
     // Update tournament status
-    const highestRound = eventData.data?.HighestCompletedRound || 0;
-    let newStatus = tourn.status;
-    if (highestRound >= totalRounds) newStatus = 'completed';
-    else if (highestRound > 0) newStatus = 'active';
+    let newStatus = 'upcoming';
+    if (highestRound > 0) newStatus = 'active';
+    if (configuredRounds > 0 && highestRound >= configuredRounds) newStatus = 'completed';
 
     if (newStatus !== tourn.status) {
       console.log(`  Updating status: ${tourn.status} → ${newStatus}`);
@@ -179,6 +187,11 @@ async function main() {
         method: 'PATCH',
         body: { status: newStatus },
       });
+    }
+
+    if (highestRound === 0) {
+      console.log(`  Skipping ${tourn.name} — no completed rounds yet`);
+      continue;
     }
 
     // Fetch scores for each completed round using the full leaderboard endpoint
@@ -257,10 +270,8 @@ async function main() {
         const isLeadCard = leadCardPdgas.has(pdga);
 
         // Finish position: only set on the final round of a completed tournament
-        const finishPos =
-          rd === highestRound && highestRound >= totalRounds
-            ? ps.RunningPlace
-            : null;
+        const isTournamentComplete = configuredRounds > 0 && highestRound >= configuredRounds;
+        const finishPos = rd === highestRound && isTournamentComplete ? ps.RunningPlace : null;
 
         scoreRows.push({
           player_id: player.id,
