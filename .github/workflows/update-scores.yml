@@ -20,6 +20,11 @@ jobs:
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+      - name: Install Playwright for PDGA stats scrape fallback
+        run: |
+          npm install playwright
+          npx playwright install chromium
+
       - name: Fetch scores from PDGA & update Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

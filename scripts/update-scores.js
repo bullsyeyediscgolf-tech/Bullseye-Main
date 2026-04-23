@@ -124,6 +124,117 @@ async function fetchDgptStats(tournId, finalRound, division = 'MPO') {
   }
 }
 
+/** Normalize names for loose matching across sources. */
+function normalizeName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Convert "72.3%" style strings to numeric percentages. */
+function parsePct(value) {
+  const n = parseFloat(String(value || '').replace('%', '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Load Playwright only when needed for PDGA stats scraping. */
+async function getPlaywrightChromium() {
+  try {
+    const mod = await import('playwright');
+    return mod.chromium;
+  } catch {
+    console.warn('Playwright not installed; skipping PDGA page scrape fallback.');
+    return null;
+  }
+}
+
+/** Find a stat value in a row using multiple possible column names. */
+function pickStat(row, keys) {
+  for (const key of keys) {
+    if (row[key] != null && row[key] !== '') return row[key];
+  }
+  return null;
+}
+
+/** Scrape PDGA Live stats table using browser-rendered DOM. */
+async function scrapePdgaStatsTable(pdgaId) {
+  const chromium = await getPlaywrightChromium();
+  if (!chromium) return null;
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  try {
+    const url = `https://www.pdga.com/live/event/${pdgaId}/MPO/stats?round=All`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.waitForSelector('.stats-full-table .table-row', { timeout: 30000 });
+    const rows = await page.evaluate(() => {
+      const headerCells = Array.from(
+        document.querySelectorAll('.stats-full-table .header-row .header-col')
+      );
+      const headers = headerCells.map((cell) => {
+        const label = cell.querySelector('.label-2-bold');
+        return (label?.textContent || '').trim();
+      });
+      const tableRows = Array.from(document.querySelectorAll('.stats-full-table .table-row'));
+      return tableRows.map((row) => {
+        const cells = Array.from(row.querySelectorAll('.cell-wrapper'));
+        const obj = {};
+        cells.forEach((cell, idx) => {
+          const key = headers[idx] || `col_${idx}`;
+          if (key === 'Player') {
+            const first = cell.querySelector('.player-first-name')?.textContent?.trim() || '';
+            const last = cell.querySelector('.player-last-name')?.textContent?.trim() || '';
+            obj.Player = `${first} ${last}`.trim();
+            return;
+          }
+          const spans = Array.from(cell.querySelectorAll('span')).map((s) => s.textContent?.trim() || '');
+          if (spans.length > 1 && spans[1].includes('/')) {
+            const [made, attempted] = spans[1].split('/');
+            obj[`${key}_made`] = made;
+            obj[`${key}_attempted`] = attempted;
+          }
+          obj[key] = spans[0] || '';
+        });
+        return obj;
+      });
+    });
+    return rows?.length ? rows : null;
+  } catch (err) {
+    console.warn(`PDGA stats scrape failed (non-fatal): ${err.message}`);
+    return null;
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
+/** Map scraped PDGA rows into player_stats upsert rows. */
+function buildStatRowsFromPdgaScrape(scrapedRows, players, tournamentId) {
+  const byName = new Map(players.map((p) => [normalizeName(p.name), p]));
+  const rows = [];
+  for (const row of scrapedRows || []) {
+    const name = row.Player || row.player || '';
+    const player = byName.get(normalizeName(name));
+    if (!player) continue;
+    const c1x = pickStat(row, ['C1XPutting', 'C1X', 'C1X Putt']);
+    const c2 = pickStat(row, ['C2Putting', 'C2', 'C2 Putt']);
+    const fwy = pickStat(row, ['Fairway', 'FWH', 'Fairway Hits']);
+    const c1ir = pickStat(row, ['C1Reg', 'C1 in Regulation', 'C1IR']);
+    rows.push({
+      player_id: player.id,
+      tournament_id: tournamentId,
+      c1x_putting_pct: parsePct(c1x),
+      c2_putting_pct: parsePct(c2),
+      fairway_hit_pct: parsePct(fwy),
+      c1_in_reg_pct: parsePct(c1ir),
+    });
+  }
+  return rows.filter((r) =>
+    r.c1x_putting_pct != null || r.c2_putting_pct != null || r.fairway_hit_pct != null || r.c1_in_reg_pct != null
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main update flow
 // ---------------------------------------------------------------------------
@@ -303,8 +414,8 @@ async function main() {
       console.log('  Fetching DGPT stats...');
       const finalRoundForStats = configuredRounds > 0 ? configuredRounds : highestRound;
       const dgptStats = await fetchDgptStats(tourn.pdga_id, finalRoundForStats);
+      let statRows = [];
       if (dgptStats) {
-        const statRows = [];
         for (const [name, st] of Object.entries(dgptStats)) {
           const player = playerByName[name];
           if (!player) continue;
@@ -317,18 +428,22 @@ async function main() {
             c1_in_reg_pct: st.c1ir,
           });
         }
-        if (statRows.length > 0) {
-          console.log(`    Upserting ${statRows.length} stat rows...`);
-          for (let i = 0; i < statRows.length; i += 50) {
-            await supabaseRpc('player_stats', {
-              method: 'POST',
-              body: statRows.slice(i, i + 50),
-              onConflict: 'player_id,tournament_id',
-            });
-          }
+      } else {
+        console.log('    DGPT stats unavailable; trying PDGA stats page scrape...');
+        const scraped = await scrapePdgaStatsTable(tourn.pdga_id);
+        statRows = buildStatRowsFromPdgaScrape(scraped, players, tourn.id);
+      }
+      if (statRows.length > 0) {
+        console.log(`    Upserting ${statRows.length} stat rows...`);
+        for (let i = 0; i < statRows.length; i += 50) {
+          await supabaseRpc('player_stats', {
+            method: 'POST',
+            body: statRows.slice(i, i + 50),
+            onConflict: 'player_id,tournament_id',
+          });
         }
       } else {
-        console.log('    No DGPT stats available (will use PDGA data only)');
+        console.log('    No stats rows parsed from DGPT or PDGA scrape');
       }
     }
   }
