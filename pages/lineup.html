@@ -84,6 +84,20 @@
     .slot-pos-label { flex-shrink: 0; }
     .slot-content { flex: 1; min-width: 0; }
     .slot-player-name { font-weight: 600; font-size: 0.9rem; }
+    .signed-up-disc {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 6px;
+      border-radius: 50%;
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+      font-size: 0.6rem;
+      vertical-align: middle;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
     .slot-stat { font-size: 0.72rem; color: var(--text-muted); }
     .slot-empty-text { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
     .slot-remove {
@@ -111,6 +125,15 @@
     .lineup-save-btn {
       margin: 0 16px 16px;
       width: calc(100% - 32px);
+    }
+    .lineup-save-actions {
+      display: flex;
+      gap: 8px;
+      margin: 0 16px 16px;
+    }
+    .lineup-save-actions .btn-primary,
+    .lineup-save-actions .btn-secondary {
+      flex: 1;
     }
     /* ── POSITION BONUS INFO ── */
     .pos-bonus-card {
@@ -248,7 +271,10 @@
                 Click a slot to pick a player for that position.
               </div>
 
-              <button class="btn-primary lineup-save-btn" id="save-lineup-btn">Save Lineup</button>
+              <div class="lineup-save-actions">
+                <button class="btn-secondary" id="save-current-btn">Save This Event</button>
+                <button class="btn-primary" id="save-all-btn">Save This + Future</button>
+              </div>
 
               <div class="pos-bonus-card">
                 <div class="pos-bonus-title">Position Bonuses</div>
@@ -292,6 +318,7 @@ const lineupState = {
   tournament: null,
   roster: [],
   lineup: {},        // position_key -> { player_id, player }
+  registeredPlayerIds: new Set(),
   selectedSlot: null,
   locked: false,
 };
@@ -330,6 +357,12 @@ function buildLineupPositions(positionOrder) {
 function getStoredPosition(slotKey) {
   const slot = lineupPositions.find((p) => p.key === slotKey);
   return slot?.position || 'flex';
+}
+
+// Get green-disc marker for players signed up to this tournament.
+function getSignedUpBadge(playerId) {
+  if (!lineupState.registeredPlayerIds.has(playerId)) return '';
+  return `<span class="signed-up-disc" title="Signed up for this tournament">●</span>`;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -426,6 +459,13 @@ async function loadLineupForTournament(tournament) {
     .eq('team_id', lineupState.team.id)
     .eq('tournament_id', tournament.id);
 
+  // Load signed-up players for this tournament.
+  const { data: entries } = await db
+    .from('tournament_entries')
+    .select('player_id')
+    .eq('tournament_id', tournament.id);
+  lineupState.registeredPlayerIds = new Set((entries || []).map(e => e.player_id));
+
   // Map stored positions to configured slot keys in order.
   const byPosition = {};
   (existing || []).forEach((entry) => {
@@ -442,12 +482,12 @@ async function loadLineupForTournament(tournament) {
 
   if (lineupState.locked) {
     document.getElementById('lineup-status-msg').textContent = '🔒 Lineup is locked for this tournament.';
-    document.getElementById('save-lineup-btn').disabled = true;
-    document.getElementById('save-lineup-btn').textContent = 'Lineup Locked';
+    document.getElementById('save-current-btn').disabled = true;
+    document.getElementById('save-all-btn').disabled = true;
   } else {
     document.getElementById('lineup-status-msg').textContent = 'Click a slot to pick a player for that position.';
-    document.getElementById('save-lineup-btn').disabled = false;
-    document.getElementById('save-lineup-btn').textContent = 'Save Lineup';
+    document.getElementById('save-current-btn').disabled = false;
+    document.getElementById('save-all-btn').disabled = false;
   }
 }
 
@@ -465,7 +505,7 @@ function renderLineupSlots() {
         </span>
         <div class="slot-content">
           ${filled
-            ? `<div class="slot-player-name">${filled.player?.name || '—'}</div>
+            ? `<div class="slot-player-name">${filled.player?.name || '—'}${getSignedUpBadge(filled.player_id)}</div>
                <div class="slot-stat">PDGA #${filled.player?.pdga_number || '—'} · Rating ${filled.player?.pdga_rating || '—'}</div>`
             : `<div class="slot-empty-text">${pos.label} — click to select</div>`
           }
@@ -498,7 +538,7 @@ function renderBenchList() {
          onclick="${canAssign ? `assignPlayer('${p.id}')` : ''}">
       <div class="player-avatar" style="width:34px;height:34px;font-size:0.7rem;flex-shrink:0;">${getInitials(p.name)}</div>
       <div class="slot-content">
-        <div class="slot-player-name">${p.name}</div>
+        <div class="slot-player-name">${p.name}${getSignedUpBadge(p.id)}</div>
         <div class="slot-stat">BENCH · PDGA #${p.pdga_number || '—'} · Rating ${p.pdga_rating || '—'}</div>
       </div>
     </div>
@@ -548,43 +588,67 @@ function assignPlayer(playerId) {
 }
 
 function setupSaveBtn() {
-  document.getElementById('save-lineup-btn').addEventListener('click', saveLineup);
+  document.getElementById('save-current-btn').addEventListener('click', () => saveLineup('current'));
+  document.getElementById('save-all-btn').addEventListener('click', () => saveLineup('future'));
 }
 
-async function saveLineup() {
+// Build lineup rows for one tournament id.
+function buildLineupRows(filledSlots, teamId, tournamentId) {
+  return filledSlots.map(([key, val]) => ({
+    team_id: teamId,
+    tournament_id: tournamentId,
+    player_id: val.player_id,
+    position: getStoredPosition(key),
+    locked: false,
+  }));
+}
+
+// Save lineup rows into a single tournament.
+async function saveForTournament(teamId, tournamentId, rows) {
+  await db.from('lineups').delete().eq('team_id', teamId).eq('tournament_id', tournamentId);
+  const { error } = await db.from('lineups').insert(rows);
+  return error;
+}
+
+// Get save targets for current-only or current+future saves.
+async function getSaveTargets(scope) {
+  if (scope === 'current') return [lineupState.tournament.id];
+  const { data } = await db
+    .from('tournaments')
+    .select('id')
+    .in('status', ['upcoming', 'active'])
+    .gte('start_date', lineupState.tournament.start_date)
+    .order('start_date', { ascending: true });
+  return (data || []).map(t => t.id);
+}
+
+async function saveLineup(scope) {
   const { team, tournament, lineup, locked } = lineupState;
   if (locked) return;
 
   const filledSlots = Object.entries(lineup).filter(([, v]) => v?.player_id);
   if (filledSlots.length === 0) { showToast('Add at least one player to your lineup', 'error'); return; }
 
-  const btn = document.getElementById('save-lineup-btn');
-  btn.disabled = true; btn.textContent = 'Saving...';
+  const currentBtn = document.getElementById('save-current-btn');
+  const allBtn = document.getElementById('save-all-btn');
+  currentBtn.disabled = true; allBtn.disabled = true;
+  currentBtn.textContent = scope === 'current' ? 'Saving...' : 'Save This Event';
+  allBtn.textContent = scope === 'future' ? 'Saving...' : 'Save This + Future';
 
-  // Delete existing lineup for this tournament
-  await db.from('lineups')
-    .delete()
-    .eq('team_id', team.id)
-    .eq('tournament_id', tournament.id);
-
-  // Insert new lineup
-  const rows = filledSlots.map(([key, val]) => ({
-    team_id: team.id,
-    tournament_id: tournament.id,
-    player_id: val.player_id,
-    position: getStoredPosition(key),
-    locked: false,
-  }));
-
-  const { error } = await db.from('lineups').insert(rows);
-
-  if (error) {
-    showToast('Save failed: ' + error.message, 'error');
-  } else {
-    showToast('✓ Lineup saved!', 'success');
+  const targetIds = await getSaveTargets(scope);
+  let failed = null;
+  for (const targetId of targetIds) {
+    const rows = buildLineupRows(filledSlots, team.id, targetId);
+    const error = await saveForTournament(team.id, targetId, rows);
+    if (error) { failed = error; break; }
   }
 
-  btn.disabled = false; btn.textContent = 'Save Lineup';
+  currentBtn.textContent = 'Save This Event';
+  allBtn.textContent = 'Save This + Future';
+  currentBtn.disabled = false;
+  allBtn.disabled = false;
+  if (failed) showToast('Save failed: ' + failed.message, 'error');
+  else showToast(scope === 'future' ? '✓ Saved for this and future events!' : '✓ Saved for this event!', 'success');
 }
 </script>
 </body>
